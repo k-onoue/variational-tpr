@@ -11,7 +11,7 @@ class SparseTPRTFullBatch:
     - E-Step: CAVI updates for variational parameters.
     - M-Step: Gradient-based optimization of model hyperparameters and inducing points.
     """
-    def __init__(self, X, y, M, nu_f=5.0, nu_e=5.0, kernel_lengthscale=1.0, kernel_variance=1.0, likelihood_sigma=1.0):
+    def __init__(self, X, y, M, nu_f=2.1, nu_e=2.1, kernel_lengthscale=1.0, kernel_variance=1.0, likelihood_sigma=1.0):
         """
         Args:
             X (torch.Tensor): Training inputs, shape (N, D).

@@ -9,8 +9,8 @@ class TPRTFullBatch:
     Implementation of the full (non-sparse) Student-t Process regression model.
     This version is aligned with the structure of the SparseTPRTFullBatch class.
     """
-    def __init__(self, X, y, nu_f=3.0, nu_e=3.0,
-                 kernel_lengthscale=1.0, kernel_variance=1.0, likelihood_sigma=0.1):
+    def __init__(self, X, y, nu_f=2.1, nu_e=2.1,
+                 kernel_lengthscale=1.0, kernel_variance=1.0, likelihood_sigma=1.0):
         
         self.X = X
         self.y = y.view(-1, 1) # Ensure y is always of shape (N, 1)
