@@ -2,7 +2,7 @@
 
 # --- この実験全体で共有するタイムスタンプと保存先を定義 ---
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-BASE_SAVE_DIR="results/tprt_full_parallel_${TIMESTAMP}"
+BASE_SAVE_DIR="results/non_sparse_${TIMESTAMP}"
 
 # --- 評価するモデルのリスト ---
 MODELS_TO_EVALUATE=("TPRT-VEM" "TPRT-LA")
@@ -16,12 +16,12 @@ ARRAY_MAX_INDEX=$((TOTAL_TASKS - 1)) # --arrayは0から始まる
 
 # --- 必要なディレクトリを作成 ---
 mkdir -p "$BASE_SAVE_DIR"
-mkdir -p slurm_logs
+mkdir -p logs
 
 # --- スクリプトのスナップショットを保存 ---
 cp "$0" "$BASE_SAVE_DIR/launcher_snapshot.sh"
-cp run_evaluation.sh "$BASE_SAVE_DIR/run_evaluation_snapshot.sh"
-cp evaluation.py "$BASE_SAVE_DIR/evaluation_snapshot.py"
+cp non_sparse_run_evaluation.sh "$BASE_SAVE_DIR/run_evaluation_snapshot.sh"
+cp non_sparse_evaluation.py "$BASE_SAVE_DIR/evaluation_snapshot.py"
 
 echo "Submitting evaluation jobs."
 echo "Total tasks per model: $TOTAL_TASKS"
@@ -35,7 +35,7 @@ for model in "${MODELS_TO_EVALUATE[@]}"; do
     echo "Submitting job array for model: $model"
     
     # sbatchでジョブ配列を投入 (例: 8データセット x 10スプリット = 80タスク)
-    sbatch --array=0-$ARRAY_MAX_INDEX run_evaluation.sh "$model" "$MODEL_SAVE_DIR"
+    sbatch --array=0-$ARRAY_MAX_INDEX non_sparse_run_evaluation.sh "$model" "$MODEL_SAVE_DIR"
 done
 
 echo "All jobs have been submitted."

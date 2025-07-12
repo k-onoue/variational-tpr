@@ -1,9 +1,11 @@
 from .kernels import rbf_kernel
+from .priors import GammaPrior, LogNormalPrior
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import math
 from torch.utils.data import DataLoader, TensorDataset
+import logging
 
 
 class SparseTPRTMiniBatch:
@@ -36,6 +38,12 @@ class SparseTPRTMiniBatch:
         self.log_sigma_sq = nn.Parameter(torch.log(torch.tensor(likelihood_sigma**2, dtype=X.dtype)))
         self.log_kernel_lengthscale = nn.Parameter(torch.log(torch.tensor(kernel_lengthscale, dtype=X.dtype)))
         self.log_kernel_variance = nn.Parameter(torch.log(torch.tensor(kernel_variance, dtype=X.dtype)))
+
+        # --- Initialize Priors for Hyperparameters ---
+        self.lengthscale_prior = GammaPrior(3.0, 6.0)
+        self.variance_prior = GammaPrior(2.0, 0.15)
+        self.sigma_sq_prior = GammaPrior(1.1, 0.05)
+        self.nu_prior = LogNormalPrior(loc=1.0, scale=1.0)
 
         # --- Initialize GLOBAL Variational Parameters (updated across batches) ---
         self.m_u = torch.zeros(self.M, 1, dtype=X.dtype, device=X.device)
@@ -93,7 +101,7 @@ class SparseTPRTMiniBatch:
 
         B = (K_ZX_batch * c) @ K_XZ_batch
         precision_inner = expected_r * K_ZZ + B
-        L_precision_inner = torch.linalg.cholesky(precision_inner)
+        L_precision_inner = torch.linalg.cholesky(precision_inner + torch.eye(self.M, dtype=K_ZZ.dtype, device=K_ZZ.device) * 1e-6)
 
         tmp_S = torch.cholesky_solve(K_ZZ, L_precision_inner)
         self.S_u = K_ZZ @ tmp_S
@@ -102,7 +110,7 @@ class SparseTPRTMiniBatch:
         m_u_unscaled = torch.cholesky_solve(y_term.unsqueeze(1), L_precision_inner)
         self.m_u = K_ZZ @ m_u_unscaled
 
-    def _cavi_step(self, X_batch, y_batch, params, K_ZZ, L_ZZ, cavi_max_iter):
+    def _cavi_step(self, X_batch, y_batch, params, K_ZZ, L_ZZ, cavi_max_iter, cavi_tol):
         # Kernels relevant to the batch
         K_XZ_batch = rbf_kernel(X_batch, self.Z, params['lengthscale'], params['variance'])
         K_ZX_batch = K_XZ_batch.T
@@ -112,12 +120,16 @@ class SparseTPRTMiniBatch:
         alpha_lambda_batch, beta_lambda_batch = None, None
 
         for _ in range(cavi_max_iter):
+            m_u_old, S_u_old = self.m_u.clone(), self.S_u.clone()
             alpha_lambda_batch, beta_lambda_batch = self._update_q_lambda(y_batch, params, L_ZZ, K_XZ_batch, K_ZX_batch, k_ii_batch)
             self._update_q_r(params, L_ZZ) # Depends on global S_u, m_u
             self._update_q_u(y_batch, alpha_lambda_batch, beta_lambda_batch, params, K_ZZ, K_XZ_batch, K_ZX_batch) # Uses batch data
+            m_u_change = torch.norm(self.m_u - m_u_old) / (torch.norm(m_u_old) + 1e-9)
+            S_u_change = torch.norm(self.S_u - S_u_old, p='fro') / (torch.norm(S_u_old, p='fro') + 1e-9)
+            if m_u_change < cavi_tol and S_u_change < cavi_tol:
+                break
 
         return alpha_lambda_batch, beta_lambda_batch
-
 
     def _e_step(self, X_batch, y_batch, cavi_max_iter=10, cavi_tol=1e-5):
         with torch.no_grad():
@@ -126,10 +138,9 @@ class SparseTPRTMiniBatch:
             L_ZZ = torch.linalg.cholesky(K_ZZ)
             
             # Perform CAVI for the current batch, updating global (m_u, S_u, etc.) and getting local params
-            alpha_lambda_batch, beta_lambda_batch = self._cavi_step(X_batch, y_batch, params, K_ZZ, L_ZZ, cavi_max_iter)
+            alpha_lambda_batch, beta_lambda_batch = self._cavi_step(X_batch, y_batch, params, K_ZZ, L_ZZ, cavi_max_iter, cavi_tol)
 
         return alpha_lambda_batch, beta_lambda_batch
-
 
     # === M-Step Methods (now operate on a batch) ===
     def _m_step(self, optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch):
@@ -184,7 +195,7 @@ class SparseTPRTMiniBatch:
         expected_log_r = torch.digamma(self.alpha_r) - torch.log(self.beta_r)
         expected_r = self.alpha_r / self.beta_r
         
-        L_S = torch.linalg.cholesky(self.S_u)
+        L_S = torch.linalg.cholesky(self.S_u + torch.eye(self.M, dtype=self.S_u.dtype, device=self.S_u.device) * 1e-6)
         logdet_S_u = 2 * torch.sum(torch.log(torch.diag(L_S)))
         logdet_K_ZZ = 2 * torch.sum(torch.log(torch.diag(L_ZZ)))
         trace_KZZinv_Su = torch.trace(torch.cholesky_solve(self.S_u, L_ZZ))
@@ -203,9 +214,24 @@ class SparseTPRTMiniBatch:
         # ★★★ SCALE DATA-DEPENDENT TERM ★★★
         kl_lambda = kl_lambda_batch * (self.N / B)
 
-        return log_lik - kl_u - kl_r - kl_lambda
+        #################################################ç
+        #################################################ç
+        #################################################ç
+        #################################################ç
+        #################################################ç
+        #################################################ç
+        # Calculate log prior for hyperparameters
+        params = self._get_hyperparams()
+        log_prior = 0.0
+        log_prior += self.lengthscale_prior.log_prob(params['lengthscale'])
+        log_prior += self.variance_prior.log_prob(params['variance'])
+        log_prior += self.sigma_sq_prior.log_prob(params['sigma_sq'])
+        log_prior += self.nu_prior.log_prob(params['nu_f'])
+        log_prior += self.nu_prior.log_prob(params['nu_epsilon'])
 
-    def fit(self, epochs=100, batch_size=64, cavi_max_iter=5, lr=0.01):
+        return log_lik - kl_u - kl_r - kl_lambda + log_prior
+
+    def fit(self, epochs=100, batch_size=64, cavi_max_iter=5, lr=0.01, cavi_tol=1e-5):
         """Runs the full Variational EM algorithm using mini-batches."""
         parameters_to_optimize = [
             self.log_nu_f, self.log_nu_epsilon, self.log_sigma_sq,
@@ -225,7 +251,7 @@ class SparseTPRTMiniBatch:
                 # print(f"Processing batch {i+1}/{len(dataloader)} in epoch {epoch+1}...")
 
                 # E-Step: Update global variational params and get local ones for the batch
-                alpha_lambda_batch, beta_lambda_batch = self._e_step(X_batch, y_batch, cavi_max_iter=cavi_max_iter)
+                alpha_lambda_batch, beta_lambda_batch = self._e_step(X_batch, y_batch, cavi_max_iter=cavi_max_iter, cavi_tol=cavi_tol)
                 
                 # M-Step: Update hyperparameters using the stochastic ELBO from the batch
                 elbo = self._m_step(optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
@@ -234,6 +260,15 @@ class SparseTPRTMiniBatch:
             
             if (epoch + 1) % 10 == 0:
                 print(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo:.4f}")
+                logging.info(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo:.4f}")
+                params = self._get_hyperparams()
+                nu_f = params['nu_f'].item()
+                nu_epsilon = params['nu_epsilon'].item()
+                lengthscale = params['lengthscale'].item()
+                variance = params['variance'].item()
+                sigma_sq = params['sigma_sq'].item()
+                logging.info(f"Current Hyperparameters: nu_f={nu_f}, nu_epsilon={nu_epsilon}, "
+                             f"lengthscale={lengthscale}, variance={variance}, sigma_sq={sigma_sq}")
         
         print("\nOptimization finished.")
         return elbo_history
@@ -265,7 +300,7 @@ class SparseTPRTMiniBatch:
         
 
 
-
+        
 
         
 # if __name__ == '__main__':

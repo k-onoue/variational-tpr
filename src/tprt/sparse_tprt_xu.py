@@ -1,4 +1,5 @@
 from .kernels import rbf_kernel
+from .priors import GammaPrior, LogNormalPrior
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -56,6 +57,13 @@ class SparseTPRTMiniBatch_Xu:
         self.log_nu_f_minus_2 = nn.Parameter(torch.log(torch.tensor(nu_f - 2.0, dtype=X.dtype)))
         self.log_nu_e_minus_2 = nn.Parameter(torch.log(torch.tensor(nu_e - 2.0, dtype=X.dtype)))
 
+        # --- Initialize Priors for Hyperparameters ---
+        self.lengthscale_prior = GammaPrior(3.0, 6.0)
+        self.variance_prior = GammaPrior(2.0, 0.15)
+        self.sigma_sq_prior = GammaPrior(1.1, 0.05)
+        self.nu_prior = LogNormalPrior(loc=1.0, scale=1.0)
+
+        # --- Initialize Variational Parameters ---
         self.mu_q = nn.Parameter(torch.zeros(self.M, dtype=X.dtype))
         self.S_chol_q = nn.Parameter(torch.eye(self.M, dtype=X.dtype))
 
@@ -131,7 +139,23 @@ class SparseTPRTMiniBatch_Xu:
         exp_log_lik = self._expected_log_likelihood(X_batch, y_batch.squeeze(), K_mm_inv, K_nm, params['nu_q'], params['nu_e'], params['likelihood_sigma'], num_samples_elbo)
         
         scale = self.N / X_batch.shape[0]
-        return scale * exp_log_lik - kl
+
+        #################################################ç
+        #################################################ç
+        #################################################ç
+        #################################################ç
+        #################################################ç
+        #################################################ç
+        # Calculate log prior for hyperparameters
+        params = self._get_hyperparams()
+        log_prior = 0.0
+        log_prior += self.lengthscale_prior.log_prob(params['lengthscale'])
+        log_prior += self.variance_prior.log_prob(params['variance'])
+        log_prior += self.sigma_sq_prior.log_prob(params['sigma_sq'])
+        log_prior += self.nu_prior.log_prob(params['nu_f'])
+        log_prior += self.nu_prior.log_prob(params['nu_epsilon'])
+
+        return scale * exp_log_lik - kl + log_prior
 
     def get_trainable_parameters(self):
         return [

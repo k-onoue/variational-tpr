@@ -8,8 +8,8 @@
 #SBATCH --time=00:30:00            # 1スプリットあたりの最大実行時間
 
 # ログファイルのパス
-#SBATCH --output=slurm_logs/tprt_eval_split_%A_%a.out
-#SBATCH --error=slurm_logs/tprt_eval_split_%A_%a.err
+#SBATCH --output=logs/tprt_eval_split_%A_%a.out
+#SBATCH --error=logs/tprt_eval_split_%A_%a.err
 
 ### --- 引数のチェック --- ###
 if [ -z "$1" ] || [ -z "$2" ]; then
@@ -57,7 +57,7 @@ echo "Save Directory: $SAVE_DIR"
 echo "=========================="
 
 ### --- Pythonスクリプトの実行 --- ###
-python evaluation.py \
+python non_sparse_evaluation.py \
     --model_name    "$MODEL_NAME" \
     --dataset_name  "$DATASET_NAME" \
     --split_id      "$SPLIT_ID" \
