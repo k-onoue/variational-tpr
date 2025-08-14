@@ -1,10 +1,32 @@
 import torch
 
-def rbf_kernel(X1, X2, lengthscale=1.0, variance=1.0):
+
+def rbf_kernel(X1, X2, lengthscale, variance=1.0):
     """
-    Computes the RBF kernel matrix between two sets of points.
+    Computes the RBF kernel matrix with ARD support.
+
+    Args:
+        X1 (torch.Tensor): A tensor of size (N, D).
+        X2 (torch.Tensor): A tensor of size (M, D).
+        lengthscale (torch.Tensor): A tensor of size (D,) representing the lengthscale for each dimension.
+        variance (float): The kernel variance.
     """
-    lengthscale = torch.as_tensor(lengthscale, dtype=X1.dtype, device=X1.device)
+    # Ensure variance is a tensor on the correct device
     variance = torch.as_tensor(variance, dtype=X1.dtype, device=X1.device)
-    sqdist = torch.cdist(X1, X2, p=2).pow(2)
-    return variance * torch.exp(-0.5 * sqdist / lengthscale**2)
+    
+    # Scale each dimension of X1 and X2 by the corresponding lengthscale
+    # This uses broadcasting to efficiently perform the operation
+    X1_scaled = X1 / lengthscale
+    X2_scaled = X2 / lengthscale
+    
+    # Compute the squared Euclidean distance in the scaled space
+    sqdist = torch.cdist(X1_scaled, X2_scaled, p=2).pow(2)
+    
+    return variance * torch.exp(-0.5 * sqdist)
+
+
+def matern52_kernel(X1, X2, lengthscale, variance=1.0):
+    sqdist = torch.cdist(X1 / lengthscale, X2 / lengthscale, p=2)
+    term1 = 1 + torch.sqrt(5) * sqdist + (5/3) * sqdist**2
+    term2 = torch.exp(-torch.sqrt(5) * sqdist)
+    return variance * term1 * term2

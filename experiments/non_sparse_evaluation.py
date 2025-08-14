@@ -1,11 +1,7 @@
 # evaluation.py (Slurm対応版)
 
-import os
 import pandas as pd
-import numpy as np
 import torch
-from sklearn.metrics import mean_squared_error
-from collections import defaultdict
 import warnings
 import time
 import logging
@@ -24,12 +20,12 @@ EVALUATION_CONFIG = {
     'TPRT-VEM': {
         'model_class': TPRTFullBatch,
         'init_params': { 'nu_f': 2.0, 'nu_e': 2.0, 'kernel_lengthscale': 1.0, 'kernel_variance': 1.0, 'likelihood_sigma': 1.0 },
-        'fit_params': { 'max_iter_global': 1000, 'cavi_max_iter': 20, 'lr': 0.1, 'eval_interval': 10 }
+        'fit_params': { 'max_iter_global': 1000, 'cavi_max_iter': 20, 'lr': 0.01, 'eval_interval': 10 }
     },
     'TPRT-LA': {
         'model_class': TPRTFullBatch_Tang,
         'init_params': { 'nu_f': 2.0, 'nu_e': 2.0, 'kernel_lengthscale': 1.0, 'kernel_variance': 1.0, 'likelihood_sigma': 1.0 },
-        'fit_params': { 'max_iter_global': 1000, 'mode_finding_iter': 20, 'lr': 0.1, 'eval_interval': 10 } 
+        'fit_params': { 'max_iter_global': 1000, 'mode_finding_iter': 20, 'lr': 0.01, 'eval_interval': 10 } 
     }
 }
 

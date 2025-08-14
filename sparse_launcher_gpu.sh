@@ -2,17 +2,17 @@
 
 # --- この実験全体で共有するタイムスタンプと保存先を定義 ---
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-BASE_SAVE_DIR="results/non_sparse_${TIMESTAMP}"
+BASE_SAVE_DIR="results/sparse_${TIMESTAMP}"
 
 # --- 評価するモデルのリスト ---
-MODELS_TO_EVALUATE=("TPRT-VEM" "TPRT-LA")
+MODELS_TO_EVALUATE=("TPRT-SCAVI" "SVTP-UB" "SVTP-MC")
+# MODELS_TO_EVALUATE=("TPRT-SCAVI")
 
 # --- データセットとスプリットの総数を定義 ---
-# run_evaluation.sh内のリストと一致させる
-NUM_DATASETS=8
-NUM_SPLITS=10
+NUM_DATASETS=4
+NUM_SPLITS=5
 TOTAL_TASKS=$((NUM_DATASETS * NUM_SPLITS))
-ARRAY_MAX_INDEX=$((TOTAL_TASKS - 1)) # --arrayは0から始まる
+ARRAY_MAX_INDEX=$((TOTAL_TASKS - 1))
 
 # --- 必要なディレクトリを作成 ---
 mkdir -p "$BASE_SAVE_DIR"
@@ -20,11 +20,11 @@ mkdir -p logs
 
 # --- スクリプトのスナップショットを保存 ---
 cp "$0" "$BASE_SAVE_DIR/launcher_snapshot.sh"
-cp non_sparse_run_evaluation.sh "$BASE_SAVE_DIR/run_evaluation_snapshot.sh"
-cp experiments/non_sparse_evaluation.py "$BASE_SAVE_DIR/evaluation_snapshot.py"
+cp sparse_run_evaluation_gpu.sh "$BASE_SAVE_DIR/run_evaluation_snapshot.sh"
+cp experiments/sparse_evaluation_gpu.py "$BASE_SAVE_DIR/evaluation_snapshot.py"
 
-echo "Submitting evaluation jobs."
-echo "Total tasks per model: $TOTAL_TASKS"
+echo "Submitting sparse model evaluation jobs based on Xu et al. (2023)."
+echo "Total tasks per model: $TOTAL_TASKS (from 0 to $ARRAY_MAX_INDEX)"
 echo "Results will be saved in: $BASE_SAVE_DIR"
 echo "-------------------------------------"
 
@@ -34,8 +34,7 @@ for model in "${MODELS_TO_EVALUATE[@]}"; do
 
     echo "Submitting job array for model: $model"
     
-    # sbatchでジョブ配列を投入 (例: 8データセット x 10スプリット = 80タスク)
-    sbatch --array=0-$ARRAY_MAX_INDEX non_sparse_run_evaluation.sh "$model" "$MODEL_SAVE_DIR"
+    sbatch --array=0-$ARRAY_MAX_INDEX sparse_run_evaluation_gpu.sh "$model" "$MODEL_SAVE_DIR"
 done
 
 echo "All jobs have been submitted."

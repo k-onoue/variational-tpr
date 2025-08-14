@@ -5,11 +5,11 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BASE_SAVE_DIR="results/sparse_${TIMESTAMP}"
 
 # --- 評価するモデルのリスト ---
-# MODELS_TO_EVALUATE=("TPRT-SCAVI" "SVTP-UB" "SVTP-MC")
-MODELS_TO_EVALUATE=("TPRT-SCAVI")
+MODELS_TO_EVALUATE=("TPRT-SCAVI" "SVTP-UB" "SVTP-MC")
+# MODELS_TO_EVALUATE=("TPRT-SCAVI")
 
 # --- データセットとスプリットの総数を定義 ---
-NUM_DATASETS=9
+NUM_DATASETS=5
 NUM_SPLITS=5
 TOTAL_TASKS=$((NUM_DATASETS * NUM_SPLITS))
 ARRAY_MAX_INDEX=$((TOTAL_TASKS - 1))
@@ -21,7 +21,7 @@ mkdir -p logs
 # --- スクリプトのスナップショットを保存 ---
 cp "$0" "$BASE_SAVE_DIR/launcher_snapshot.sh"
 cp sparse_run_evaluation.sh "$BASE_SAVE_DIR/run_evaluation_snapshot.sh"
-cp sparse_evaluation.py "$BASE_SAVE_DIR/evaluation_snapshot.py"
+cp experiments/sparse_evaluation.py "$BASE_SAVE_DIR/evaluation_snapshot.py"
 
 echo "Submitting sparse model evaluation jobs based on Xu et al. (2023)."
 echo "Total tasks per model: $TOTAL_TASKS (from 0 to $ARRAY_MAX_INDEX)"

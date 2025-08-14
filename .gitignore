@@ -4,5 +4,5 @@ __pycache__
 dataset*
 results*
 logs*
-notebooks
+# notebooks
 *.egg-info

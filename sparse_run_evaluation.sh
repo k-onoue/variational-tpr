@@ -26,7 +26,7 @@ SAVE_DIR=$2
 
 # --- データセットとスプリット数の定義 (新しい構成) --- ###
 DATASETS=(
-    "Boston" "Concrete" "Concrete_Outliers" "Elevators" "Energy" "Kin8nm" "Kin8nm_Outliers" "Protein" "Yacht"
+    "Boston" "Concrete" "Concrete_Outliers" "Energy" "Yacht"
 )
 NUM_SPLITS=5
 
@@ -54,7 +54,7 @@ echo "Save Directory: $SAVE_DIR"
 echo "=========================="
 
 ### --- Pythonスクリプトの実行 --- ###
-python sparse_evaluation.py \
+python experiments/sparse_evaluation.py \
     --model_name    "$MODEL_NAME" \
     --dataset_name  "$DATASET_NAME" \
     --split_id      "$SPLIT_ID" \
