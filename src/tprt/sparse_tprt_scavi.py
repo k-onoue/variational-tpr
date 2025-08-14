@@ -1,1174 +1,22 @@
-# from .kernels import rbf_kernel
-# from .priors import GammaPrior, LogNormalPrior
-# import torch
-# import torch.nn as nn
-# import torch.optim as optim
-# import math
-# from torch.utils.data import DataLoader, TensorDataset
-# import logging
-
-
-# class SparseTPRTMiniBatch:
-#     """
-#     Implementation of Variational EM for Student-t Process Regression with Mini-batching.
-#     - E-Step: CAVI updates for variational parameters.
-#     - M-Step: Gradient-based optimization of model hyperparameters and inducing points
-#               using a stochastic estimate of the ELBO.
-#     """
-#     def __init__(self, X, y, M, nu_f=2.1, nu_e=2.1, kernel_lengthscale=1.0, kernel_variance=1.0, likelihood_sigma=1.0):
-#         """
-#         Args:
-#             X (torch.Tensor): Full training inputs, shape (N, D).
-#             y (torch.Tensor): Full training outputs, shape (N, 1) or (N,).
-#             M (int): Number of inducing points.
-#             ... (hyperparameters)
-#         """
-#         self.X_full = X # Keep full data for reference (e.g., initialization)
-#         self.y_full = y.view(-1, 1) # Keep full data for reference
-#         self.N, self.D = X.shape
-#         self.M = M
-
-#         # --- Initialize Inducing Points using Sobol sequence from the full dataset ---
-#         Z_initial = self._initialize_inducing_points()
-#         self.Z = nn.Parameter(Z_initial)
-
-#         # --- Initialize Hyperparameters (M-step) ---
-#         self.log_nu_f = nn.Parameter(torch.log(torch.tensor(nu_f, dtype=X.dtype)))
-#         self.log_nu_epsilon = nn.Parameter(torch.log(torch.tensor(nu_e, dtype=X.dtype)))
-#         self.log_sigma_sq = nn.Parameter(torch.log(torch.tensor(likelihood_sigma**2, dtype=X.dtype)))
-#         self.log_kernel_lengthscale = nn.Parameter(torch.log(torch.tensor(kernel_lengthscale, dtype=X.dtype)))
-#         self.log_kernel_variance = nn.Parameter(torch.log(torch.tensor(kernel_variance, dtype=X.dtype)))
-
-#         # --- Initialize Priors for Hyperparameters ---
-#         self.lengthscale_prior = GammaPrior(3.0, 6.0)
-#         self.variance_prior = GammaPrior(2.0, 0.15)
-#         self.sigma_sq_prior = GammaPrior(1.1, 0.05)
-#         self.nu_prior = LogNormalPrior(loc=1.0, scale=1.0)
-
-#         # --- Initialize GLOBAL Variational Parameters (updated across batches) ---
-#         self.m_u = torch.zeros(self.M, 1, dtype=X.dtype, device=X.device)
-#         self.S_u = torch.eye(self.M, dtype=X.dtype, device=X.device)
-#         self.alpha_r = torch.tensor(1.0, dtype=X.dtype, device=X.device)
-#         self.beta_r = torch.tensor(1.0, dtype=X.dtype, device=X.device)
-#         # LOCAL variational parameters (alpha_lambda, beta_lambda) are computed on-the-fly for each batch
-
-#     def _initialize_inducing_points(self):
-#         min_bounds = self.X_full.min(dim=0).values
-#         max_bounds = self.X_full.max(dim=0).values
-#         sobol_engine = torch.quasirandom.SobolEngine(dimension=self.D, scramble=True, seed=0)
-#         sobol_points_unit = sobol_engine.draw(self.M).to(self.X_full.dtype)
-#         return min_bounds + sobol_points_unit * (max_bounds - min_bounds)
-
-#     def _get_hyperparams(self):
-#         return {
-#             "nu_f": torch.exp(self.log_nu_f),
-#             "nu_epsilon": torch.exp(self.log_nu_epsilon),
-#             "sigma_sq": torch.exp(self.log_sigma_sq),
-#             "lengthscale": torch.exp(self.log_kernel_lengthscale),
-#             "variance": torch.exp(self.log_kernel_variance)
-#         }
-
-#     # === E-Step Methods (now operate on a batch) ===
-#     def _update_q_lambda(self, y_batch, params, L_ZZ, K_XZ_batch, K_ZX_batch, k_ii_batch):
-#         KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
-#         expected_f_mean = K_XZ_batch @ KZZ_inv_m_u # Shape: (B, 1)
-
-#         if self.alpha_r > 1: expected_r_inv = self.beta_r / (self.alpha_r - 1.0)
-#         else: expected_r_inv = self.beta_r
-
-#         KXZ_KZZ_inv = torch.cholesky_solve(K_ZX_batch, L_ZZ).T
-#         var_f_term1 = expected_r_inv * (k_ii_batch - (KXZ_KZZ_inv * K_XZ_batch).sum(dim=1))
-#         var_f_term2 = (KXZ_KZZ_inv @ self.S_u * KXZ_KZZ_inv).sum(dim=1)
-#         var_f = (var_f_term1 + var_f_term2).unsqueeze(1) # Shape: (B, 1)
-
-#         expected_sq_error = (y_batch - expected_f_mean).pow(2) + var_f
-#         alpha_lambda_batch = params['nu_epsilon'] / 2.0 + 0.5
-#         beta_lambda_batch = params['nu_epsilon'] / 2.0 + (0.5 / params['sigma_sq']) * expected_sq_error
-#         return alpha_lambda_batch, beta_lambda_batch
-
-#     def _update_q_r(self, params, L_ZZ):
-#         trace_term = torch.trace(torch.cholesky_solve(self.S_u, L_ZZ))
-#         KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
-#         mean_term = self.m_u.T @ KZZ_inv_m_u
-#         expected_u_quadratic_form = trace_term + mean_term
-#         self.alpha_r = params['nu_f'] / 2.0 + self.M / 2.0
-#         self.beta_r = params['nu_f'] / 2.0 + 0.5 * expected_u_quadratic_form.squeeze()
-
-#     def _update_q_u(self, y_batch, alpha_lambda_batch, beta_lambda_batch, params, K_ZZ, K_XZ_batch, K_ZX_batch):
-#         expected_r = self.alpha_r / self.beta_r
-#         expected_lambda = alpha_lambda_batch.squeeze() / beta_lambda_batch.squeeze()
-#         c = expected_lambda / params['sigma_sq']
-
-#         B = (K_ZX_batch * c) @ K_XZ_batch
-#         precision_inner = expected_r * K_ZZ + B
-#         L_precision_inner = torch.linalg.cholesky(precision_inner + torch.eye(self.M, dtype=K_ZZ.dtype, device=K_ZZ.device) * 1e-6)
-
-#         tmp_S = torch.cholesky_solve(K_ZZ, L_precision_inner)
-#         self.S_u = K_ZZ @ tmp_S
-
-#         y_term = K_ZX_batch @ (y_batch.squeeze() * c)
-#         m_u_unscaled = torch.cholesky_solve(y_term.unsqueeze(1), L_precision_inner)
-#         self.m_u = K_ZZ @ m_u_unscaled
-
-#     def _cavi_step(self, X_batch, y_batch, params, K_ZZ, L_ZZ, cavi_max_iter, cavi_tol):
-#         # Kernels relevant to the batch
-#         K_XZ_batch = rbf_kernel(X_batch, self.Z, params['lengthscale'], params['variance'])
-#         K_ZX_batch = K_XZ_batch.T
-#         k_ii_batch = params['variance'].expand(X_batch.shape[0])
-
-#         # Local vars for lambda are re-calculated each time
-#         alpha_lambda_batch, beta_lambda_batch = None, None
-
-#         for _ in range(cavi_max_iter):
-#             m_u_old, S_u_old = self.m_u.clone(), self.S_u.clone()
-#             alpha_lambda_batch, beta_lambda_batch = self._update_q_lambda(y_batch, params, L_ZZ, K_XZ_batch, K_ZX_batch, k_ii_batch)
-#             self._update_q_r(params, L_ZZ) # Depends on global S_u, m_u
-#             self._update_q_u(y_batch, alpha_lambda_batch, beta_lambda_batch, params, K_ZZ, K_XZ_batch, K_ZX_batch) # Uses batch data
-#             m_u_change = torch.norm(self.m_u - m_u_old) / (torch.norm(m_u_old) + 1e-9)
-#             S_u_change = torch.norm(self.S_u - S_u_old, p='fro') / (torch.norm(S_u_old, p='fro') + 1e-9)
-#             if m_u_change < cavi_tol and S_u_change < cavi_tol:
-#                 break
-
-#         return alpha_lambda_batch, beta_lambda_batch
-
-#     def _e_step(self, X_batch, y_batch, cavi_max_iter=10, cavi_tol=1e-5):
-#         with torch.no_grad():
-#             params = self._get_hyperparams()
-#             K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-#             L_ZZ = torch.linalg.cholesky(K_ZZ)
-            
-#             # Perform CAVI for the current batch, updating global (m_u, S_u, etc.) and getting local params
-#             alpha_lambda_batch, beta_lambda_batch = self._cavi_step(X_batch, y_batch, params, K_ZZ, L_ZZ, cavi_max_iter, cavi_tol)
-
-#         return alpha_lambda_batch, beta_lambda_batch
-
-#     # === M-Step Methods (now operate on a batch) ===
-#     def _m_step(self, optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch):
-#         optimizer.zero_grad()
-#         # Pass batch-specific variational parameters to ELBO calculation
-#         elbo = self._calculate_elbo(X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
-#         loss = -elbo
-#         loss.backward()
-#         optimizer.step()
-#         return elbo.item()
-    
-#     def _calculate_elbo(self, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch):
-#         B = X_batch.shape[0] # Batch size
-#         params = self._get_hyperparams()
-        
-#         K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-#         L_ZZ = torch.linalg.cholesky(K_ZZ)
-#         K_XZ_batch = rbf_kernel(X_batch, self.Z, params['lengthscale'], params['variance'])
-#         K_ZX_batch = K_XZ_batch.T
-#         k_ii_batch = params['variance'].expand(B)
-        
-#         # --- 1. Expected Log-Likelihood (Data-dependent term) ---
-#         expected_log_lambda = torch.digamma(alpha_lambda_batch) - torch.log(beta_lambda_batch)
-#         expected_lambda = alpha_lambda_batch / beta_lambda_batch
-        
-#         KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
-#         expected_f_mean = K_XZ_batch @ KZZ_inv_m_u
-
-#         if self.alpha_r > 1: expected_r_inv = self.beta_r / (self.alpha_r - 1.0)
-#         else: expected_r_inv = self.beta_r
-        
-#         KXZ_KZZ_inv = torch.cholesky_solve(K_ZX_batch, L_ZZ).T
-#         var_f_term1 = expected_r_inv * (k_ii_batch - (KXZ_KZZ_inv * K_XZ_batch).sum(dim=1))
-#         var_f_term2 = (KXZ_KZZ_inv @ self.S_u * KXZ_KZZ_inv).sum(dim=1)
-#         var_f = (var_f_term1 + var_f_term2).unsqueeze(1)
-        
-#         expected_sq_error = (y_batch - expected_f_mean).pow(2) + var_f
-        
-#         log_lik_batch = 0.5 * torch.sum(expected_log_lambda - math.log(2 * math.pi) - torch.log(params['sigma_sq']) - \
-#                                   (expected_lambda / params['sigma_sq']) * expected_sq_error)
-        
-#         # ★★★ SCALE DATA-DEPENDENT TERM ★★★
-#         log_lik = log_lik_batch * (self.N / B)
-
-#         # --- 2. KL Divergences ---
-#         # KL[q(r) || p(r)] (Global term, NOT scaled)
-#         p_alpha_r, p_beta_r = params['nu_f'] / 2.0, params['nu_f'] / 2.0
-#         kl_r = (self.alpha_r - p_alpha_r) * torch.digamma(self.alpha_r) - torch.lgamma(self.alpha_r) + torch.lgamma(p_alpha_r) + \
-#                p_alpha_r * (torch.log(self.beta_r) - torch.log(p_beta_r)) + self.alpha_r * (p_beta_r - self.beta_r) / self.beta_r
-        
-#         # KL[q(u) || p(u)] (Global term, NOT scaled)
-#         expected_log_r = torch.digamma(self.alpha_r) - torch.log(self.beta_r)
-#         expected_r = self.alpha_r / self.beta_r
-        
-#         L_S = torch.linalg.cholesky(self.S_u + torch.eye(self.M, dtype=self.S_u.dtype, device=self.S_u.device) * 1e-6)
-#         logdet_S_u = 2 * torch.sum(torch.log(torch.diag(L_S)))
-#         logdet_K_ZZ = 2 * torch.sum(torch.log(torch.diag(L_ZZ)))
-#         trace_KZZinv_Su = torch.trace(torch.cholesky_solve(self.S_u, L_ZZ))
-#         m_T_KZZinv_m = self.m_u.T @ KZZ_inv_m_u
-#         expected_u_quadratic = trace_KZZinv_Su + m_T_KZZinv_m
-        
-#         kl_u = 0.5 * (-logdet_S_u - self.M * expected_log_r + logdet_K_ZZ + expected_r * expected_u_quadratic - self.M).squeeze()
-        
-#         # KL[q(lambda) || p(lambda)] (Data-dependent term)
-#         p_alpha_lambda, p_beta_lambda = params['nu_epsilon'] / 2.0, params['nu_epsilon'] / 2.0
-#         kl_lambda_batch = torch.sum((alpha_lambda_batch - p_alpha_lambda) * torch.digamma(alpha_lambda_batch) - \
-#                     torch.lgamma(alpha_lambda_batch) + torch.lgamma(p_alpha_lambda) + \
-#                     p_alpha_lambda * (torch.log(beta_lambda_batch) - torch.log(p_beta_lambda)) + \
-#                     alpha_lambda_batch * (p_beta_lambda - beta_lambda_batch) / beta_lambda_batch)
-        
-#         # ★★★ SCALE DATA-DEPENDENT TERM ★★★
-#         kl_lambda = kl_lambda_batch * (self.N / B)
-
-#         #################################################ç
-#         #################################################ç
-#         #################################################ç
-#         #################################################ç
-#         #################################################ç
-#         #################################################ç
-#         # Calculate log prior for hyperparameters
-#         params = self._get_hyperparams()
-#         log_prior = 0.0
-#         log_prior += self.lengthscale_prior.log_prob(params['lengthscale'])
-#         log_prior += self.variance_prior.log_prob(params['variance'])
-#         log_prior += self.sigma_sq_prior.log_prob(params['sigma_sq'])
-#         log_prior += self.nu_prior.log_prob(params['nu_f'])
-#         log_prior += self.nu_prior.log_prob(params['nu_epsilon'])
-
-#         return log_lik - kl_u - kl_r - kl_lambda + log_prior
-
-#     def fit(self, epochs=100, batch_size=64, cavi_max_iter=5, lr=0.01, cavi_tol=1e-5):
-#         """Runs the full Variational EM algorithm using mini-batches."""
-#         parameters_to_optimize = [
-#             self.log_nu_f, self.log_nu_epsilon, self.log_sigma_sq,
-#             self.log_kernel_lengthscale, self.log_kernel_variance, self.Z
-#         ]
-#         optimizer = optim.Adam(parameters_to_optimize, lr=lr)
-        
-#         # Create DataLoader for mini-batching
-#         dataset = TensorDataset(self.X_full, self.y_full)
-#         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        
-#         elbo_history = []
-#         print(f"Starting Variational EM optimization for {epochs} epochs with batch size {batch_size}...")
-#         for epoch in range(epochs):
-#             for i, (X_batch, y_batch) in enumerate(dataloader):
-
-#                 # print(f"Processing batch {i+1}/{len(dataloader)} in epoch {epoch+1}...")
-
-#                 # E-Step: Update global variational params and get local ones for the batch
-#                 alpha_lambda_batch, beta_lambda_batch = self._e_step(X_batch, y_batch, cavi_max_iter=cavi_max_iter, cavi_tol=cavi_tol)
-                
-#                 # M-Step: Update hyperparameters using the stochastic ELBO from the batch
-#                 elbo = self._m_step(optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
-                
-#                 elbo_history.append(elbo)
-            
-#             if (epoch + 1) % 10 == 0:
-#                 print(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo:.4f}")
-#                 logging.info(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo:.4f}")
-#                 params = self._get_hyperparams()
-#                 nu_f = params['nu_f'].item()
-#                 nu_epsilon = params['nu_epsilon'].item()
-#                 lengthscale = params['lengthscale'].item()
-#                 variance = params['variance'].item()
-#                 sigma_sq = params['sigma_sq'].item()
-#                 logging.info(f"Current Hyperparameters: nu_f={nu_f}, nu_epsilon={nu_epsilon}, "
-#                              f"lengthscale={lengthscale}, variance={variance}, sigma_sq={sigma_sq}")
-        
-#         print("\nOptimization finished.")
-#         return elbo_history
-
-#     def predict(self, X_test):
-#         """
-#         Makes predictions for new data X_test. (No changes needed here)
-#         """
-#         with torch.no_grad():
-#             params = self._get_hyperparams()
-            
-#             K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-#             L_ZZ = torch.linalg.cholesky(K_ZZ)
-#             K_star_Z = rbf_kernel(X_test, self.Z, params['lengthscale'], params['variance'])
-#             k_star_star = rbf_kernel(X_test, X_test, params['lengthscale'], params['variance']).diag()
-
-#             KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
-#             pred_mean = K_star_Z @ KZZ_inv_m_u
-
-#             K_star_Z_K_ZZ_inv = torch.cholesky_solve(K_star_Z.T, L_ZZ, upper=False).T
-            
-#             gp_var = k_star_star - (K_star_Z_K_ZZ_inv * K_star_Z).sum(dim=1) + \
-#                      (K_star_Z_K_ZZ_inv @ self.S_u * K_star_Z_K_ZZ_inv).sum(dim=1)
-            
-#             pred_nu = 2 * self.alpha_r
-#             pred_scale_sq = (gp_var * (self.beta_r / self.alpha_r)).unsqueeze(1)
-            
-#             return pred_mean, pred_scale_sq, pred_nu
-        
-
-
-        
-
-        
-# # if __name__ == '__main__':
-
-# #     import matplotlib.pyplot as plt
-# #     from scipy.stats import t
-# #     import pandas as pd
-
-# #     torch.set_default_dtype(torch.float64)
-# #     torch.manual_seed(42)
-
-# #     # --- 1. 1次元データの生成 ---
-# #     N = 200 # Increase data size for mini-batching to be more meaningful
-# #     X_train = torch.linspace(-5, 5, N).unsqueeze(1)
-# #     y_true = torch.sin(X_train) * 2
-    
-# #     noise = torch.randn(N, 1) * 0.1
-# #     t_dist_sample = torch.distributions.StudentT(df=2)
-# #     outlier_noise = t_dist_sample.sample((N, 1)) * 0.5
-# #     y_train = y_true + noise
-# #     outlier_indices = torch.randperm(N)[:20] # More outliers
-# #     y_train[outlier_indices] += outlier_noise[outlier_indices] * 3
-# #     y_train[30] = -4.0
-# #     y_train[70] = 5.0
-# #     y_train[150] = 6.0
-
-# #     # --- 2. モデルのセットアップ ---
-# #     M = 50 # Number of inducing points
-    
-# #     # Instantiate the new Mini-batch model
-# #     model = SparseTPRTMiniBatch(
-# #         X=X_train,
-# #         y=y_train,
-# #         M=M,
-# #         nu_f=5.0,
-# #         nu_e=5.0,
-# #         kernel_lengthscale=0.5,
-# #         kernel_variance=2.0,
-# #         likelihood_sigma=0.5
-# #     )
-
-# #     # --- 3. モデルの学習 ---
-# #     elbo_history = model.fit(epochs=1000, batch_size=50, cavi_max_iter=20, lr=0.01)
-
-# #     # --- 4. 予測の実行 ---
-# #     X_test = torch.linspace(-6, 6, 200).unsqueeze(1)
-# #     pred_mean, pred_var, pred_nu = model.predict(X_test)
-
-# #     # --- 5. 回帰結果の可視化 ---
-# #     plt.figure(figsize=(12, 8))
-# #     pred_scale = torch.sqrt(pred_var.clamp(min=1e-9))
-# #     df = pred_nu.item()
-# #     lower_quantile = t.ppf(0.025, df=df)
-# #     upper_quantile = t.ppf(0.975, df=df)
-# #     lower = pred_mean + lower_quantile * pred_scale
-# #     upper = pred_mean + upper_quantile * pred_scale
-
-# #     plt.fill_between(X_test.squeeze(), lower.squeeze(), upper.squeeze(), color='orange', alpha=0.3, label='95% Predictive Interval (Student-t)')
-# #     plt.plot(X_test, pred_mean, 'r-', lw=2, label='Predictive Mean')
-# #     plt.plot(X_train, y_train, 'kx', mew=1, alpha=0.5, label='Training Data (with outliers)')
-# #     plt.plot(model.Z.detach(), torch.full_like(model.Z.detach(), -5.5), 'r|', ms=20, mew=2, label='Optimized Inducing Points')
-# #     plt.title('Sparse TP Regression (Mini-batch Training)', fontsize=16)
-# #     plt.legend(loc='upper left')
-# #     plt.grid(True)
-# #     plt.xlim(-6, 6)
-# #     plt.ylim(-6, 6)
-    
-# #     # --- 6. ELBOの履歴を可視化 ---
-# #     plt.figure(figsize=(12, 6))
-# #     # Plot a moving average of the ELBO to see the trend more clearly
-# #     elbo_series = pd.Series(elbo_history)
-# #     elbo_moving_avg = elbo_series.rolling(window=len(elbo_history) // 50).mean() # window size is num_batches
-# #     plt.plot(elbo_history, alpha=0.3, label='Per-Batch ELBO')
-# #     plt.plot(elbo_moving_avg, color='red', label='Moving Average')
-# #     plt.title('Sparse TP ELBO Convergence (Mini-batch)', fontsize=16)
-# #     plt.xlabel('Iterations (Batches)', fontsize=12)
-# #     plt.ylabel('Stochastic ELBO', fontsize=12)
-# #     plt.grid(True)
-# #     plt.legend()
-# #     plt.tight_layout()
-
-# #     plt.show()
-
-
-
-
-
-
 from .kernels import rbf_kernel
 from .priors import GammaPrior, LogNormalPrior
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import math
 from torch.utils.data import DataLoader, TensorDataset
 import logging
+from pathlib import Path
 import numpy as np
+from sklearn.cluster import KMeans
 
 
 class SparseTPRTMiniBatch(nn.Module):
     """
-    ARD / Isotropic 自動対応版 - SparseTPRTMiniBatch
-    kernel_lengthscaleにスカラーを渡せばIsotropic、ベクトルを渡せばARDとして動作します。
-    """
-    def __init__(self, X, y, M, nu_f=2.1, nu_e=2.1, 
-                 kernel_lengthscale=None, kernel_variance=1.0, 
-                 likelihood_sigma=1.0, device=None):
-        super().__init__()
-
-        if device is None:
-            self.device = X.device
-        else:
-            self.device = torch.device(device)
-
-        self.register_buffer('X_full', X.to(self.device))
-        self.register_buffer('y_full', y.view(-1, 1).to(self.device))
-        
-        # 1次元データの場合、(N, 1)の形に整形
-        if self.X_full.ndim == 1:
-            self.X_full = self.X_full.unsqueeze(1)
-        if self.y_full.ndim == 1:
-            self.y_full = self.y_full.unsqueeze(1)
-
-        self.N, self.D = self.X_full.shape
-        self.M = M
-        
-        # ★ 変更点: ARDとIsotropicの自動対応ロジック
-        dtype = self.X_full.dtype
-        if kernel_lengthscale is None:
-            # デフォルトは全ての次元で1.0
-            kernel_lengthscale = torch.ones(self.D, dtype=dtype)
-        else:
-            kernel_lengthscale = torch.as_tensor(kernel_lengthscale, dtype=dtype)
-        
-        # スカラーが渡された場合、次元Dのベクトルに拡張
-        if kernel_lengthscale.ndim == 0:
-            kernel_lengthscale = kernel_lengthscale.repeat(self.D)
-        
-        if kernel_lengthscale.shape[0] != self.D:
-            raise ValueError(f"lengthscale must be a scalar or a vector of length D={self.D}")
-
-        # --- Initialize Hyperparameters ---
-        self.log_kernel_lengthscale = nn.Parameter(torch.log(kernel_lengthscale))
-        self.log_kernel_variance = nn.Parameter(torch.log(torch.tensor(kernel_variance, dtype=dtype)))
-        self.log_nu_f = nn.Parameter(torch.log(torch.tensor(nu_f, dtype=dtype)))
-        self.log_nu_epsilon = nn.Parameter(torch.log(torch.tensor(nu_e, dtype=dtype)))
-        self.log_sigma_sq = nn.Parameter(torch.log(torch.tensor(likelihood_sigma**2, dtype=dtype)))
-
-        Z_initial = self._initialize_inducing_points()
-        self.Z = nn.Parameter(Z_initial)
-
-        # --- Priors ---
-        self.lengthscale_prior = GammaPrior(3.0, 6.0)
-        self.variance_prior = GammaPrior(2.0, 0.15)
-        self.sigma_sq_prior = GammaPrior(1.1, 0.05)
-        self.nu_prior = LogNormalPrior(loc=1.0, scale=1.0)
-
-        # --- Variational Parameters ---
-        self.register_buffer('m_u', torch.zeros(self.M, 1, dtype=dtype))
-        self.register_buffer('S_u', torch.eye(self.M, dtype=dtype))
-        self.register_buffer('alpha_r', torch.tensor(1.0, dtype=dtype))
-        self.register_buffer('beta_r', torch.tensor(1.0, dtype=dtype))
-        
-        self.to(self.device)
-
-    def _initialize_inducing_points(self):
-        min_bounds = self.X_full.min(dim=0).values
-        max_bounds = self.X_full.max(dim=0).values
-        sobol_engine = torch.quasirandom.SobolEngine(dimension=self.D, scramble=True, seed=0)
-        # Draw on CPU and then move to the target device
-        sobol_points_unit = sobol_engine.draw(self.M).to(dtype=self.X_full.dtype, device=self.device)
-        return min_bounds + sobol_points_unit * (max_bounds - min_bounds)
-
-    def _get_hyperparams(self):
-        return {
-            "nu_f": torch.exp(self.log_nu_f),
-            "nu_epsilon": torch.exp(self.log_nu_epsilon),
-            "sigma_sq": torch.exp(self.log_sigma_sq),
-            "lengthscale": torch.exp(self.log_kernel_lengthscale),
-            "variance": torch.exp(self.log_kernel_variance)
-        }
-
-    # === E-Step Methods (now operate on a batch) ===
-    def _update_q_lambda(self, y_batch, params, L_ZZ, K_XZ_batch, K_ZX_batch, k_ii_batch):
-        KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
-        expected_f_mean = K_XZ_batch @ KZZ_inv_m_u # Shape: (B, 1)
-
-        if self.alpha_r > 1: expected_r_inv = self.beta_r / (self.alpha_r - 1.0)
-        else: expected_r_inv = self.beta_r
-
-        KXZ_KZZ_inv = torch.cholesky_solve(K_ZX_batch, L_ZZ).T
-        var_f_term1 = expected_r_inv * (k_ii_batch - (KXZ_KZZ_inv * K_XZ_batch).sum(dim=1))
-        var_f_term2 = (KXZ_KZZ_inv @ self.S_u * KXZ_KZZ_inv).sum(dim=1)
-        var_f = (var_f_term1 + var_f_term2).unsqueeze(1) # Shape: (B, 1)
-
-        expected_sq_error = (y_batch - expected_f_mean).pow(2) + var_f
-        alpha_lambda_batch = params['nu_epsilon'] / 2.0 + 0.5
-        beta_lambda_batch = params['nu_epsilon'] / 2.0 + (0.5 / params['sigma_sq']) * expected_sq_error
-        return alpha_lambda_batch, beta_lambda_batch
-
-    def _update_q_r(self, params, L_ZZ):
-        trace_term = torch.trace(torch.cholesky_solve(self.S_u, L_ZZ))
-        KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
-        mean_term = self.m_u.T @ KZZ_inv_m_u
-        expected_u_quadratic_form = trace_term + mean_term
-        self.alpha_r = params['nu_f'] / 2.0 + self.M / 2.0
-        self.beta_r = params['nu_f'] / 2.0 + 0.5 * expected_u_quadratic_form.squeeze()
-
-    def _update_q_u(self, y_batch, alpha_lambda_batch, beta_lambda_batch, params, K_ZZ, K_XZ_batch, K_ZX_batch):
-        expected_r = self.alpha_r / self.beta_r
-        expected_lambda = alpha_lambda_batch.squeeze() / beta_lambda_batch.squeeze()
-        c = expected_lambda / params['sigma_sq']
-
-        B = (K_ZX_batch * c) @ K_XZ_batch
-        precision_inner = expected_r * K_ZZ + B
-        L_precision_inner = torch.linalg.cholesky(precision_inner + torch.eye(self.M, dtype=K_ZZ.dtype, device=K_ZZ.device) * 1e-6)
-
-        tmp_S = torch.cholesky_solve(K_ZZ, L_precision_inner)
-        self.S_u = K_ZZ @ tmp_S
-
-        y_term = K_ZX_batch @ (y_batch.squeeze() * c)
-        m_u_unscaled = torch.cholesky_solve(y_term.unsqueeze(1), L_precision_inner)
-        self.m_u = K_ZZ @ m_u_unscaled
-
-    def _cavi_step(self, X_batch, y_batch, params, K_ZZ, L_ZZ, cavi_max_iter, cavi_tol):
-        # Kernels relevant to the batch
-        K_XZ_batch = rbf_kernel(X_batch, self.Z, params['lengthscale'], params['variance'])
-        K_ZX_batch = K_XZ_batch.T
-        k_ii_batch = params['variance'].expand(X_batch.shape[0])
-
-        # Local vars for lambda are re-calculated each time
-        alpha_lambda_batch, beta_lambda_batch = None, None
-
-        for _ in range(cavi_max_iter):
-            m_u_old, S_u_old = self.m_u.clone(), self.S_u.clone()
-            alpha_lambda_batch, beta_lambda_batch = self._update_q_lambda(y_batch, params, L_ZZ, K_XZ_batch, K_ZX_batch, k_ii_batch)
-            self._update_q_r(params, L_ZZ) # Depends on global S_u, m_u
-            self._update_q_u(y_batch, alpha_lambda_batch, beta_lambda_batch, params, K_ZZ, K_XZ_batch, K_ZX_batch) # Uses batch data
-            m_u_change = torch.norm(self.m_u - m_u_old) / (torch.norm(m_u_old) + 1e-9)
-            S_u_change = torch.norm(self.S_u - S_u_old, p='fro') / (torch.norm(S_u_old, p='fro') + 1e-9)
-            if m_u_change < cavi_tol and S_u_change < cavi_tol:
-                break
-
-        return alpha_lambda_batch, beta_lambda_batch
-
-    def _e_step(self, X_batch, y_batch, cavi_max_iter=10, cavi_tol=1e-5):
-        with torch.no_grad():
-            params = self._get_hyperparams()
-            K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-            L_ZZ = torch.linalg.cholesky(K_ZZ)
-            
-            # Perform CAVI for the current batch, updating global (m_u, S_u, etc.) and getting local params
-            alpha_lambda_batch, beta_lambda_batch = self._cavi_step(X_batch, y_batch, params, K_ZZ, L_ZZ, cavi_max_iter, cavi_tol)
-
-        return alpha_lambda_batch, beta_lambda_batch
-
-    # === M-Step Methods (now operate on a batch) ===
-    def _m_step(self, optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch):
-        optimizer.zero_grad()
-        # Pass batch-specific variational parameters to ELBO calculation
-        elbo = self._calculate_elbo(X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
-        loss = -elbo
-        loss.backward()
-        optimizer.step()
-        return elbo.item()
-
-    # # === M-Step Methods (now operate on a batch) ===
-    # def _m_step(self, optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch):
-    #     max_iter = 100
-    #     optimizer.zero_grad()
-    #     for _ in range(max_iter):
-    #         elbo = self._calculate_elbo(X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
-    #         loss = -elbo
-    #         loss.backward()
-    #         optimizer.step()
-    #     return elbo.item()
-        
-    def _calculate_elbo(self, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch):
-        B = X_batch.shape[0] # Batch size
-        params = self._get_hyperparams()
-        
-        K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-        L_ZZ = torch.linalg.cholesky(K_ZZ)
-        K_XZ_batch = rbf_kernel(X_batch, self.Z, params['lengthscale'], params['variance'])
-        K_ZX_batch = K_XZ_batch.T
-        k_ii_batch = params['variance'].expand(B)
-        
-        # --- 1. Expected Log-Likelihood (Data-dependent term) ---
-        expected_log_lambda = torch.digamma(alpha_lambda_batch) - torch.log(beta_lambda_batch)
-        expected_lambda = alpha_lambda_batch / beta_lambda_batch
-        
-        KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
-        expected_f_mean = K_XZ_batch @ KZZ_inv_m_u
-
-        if self.alpha_r > 1: expected_r_inv = self.beta_r / (self.alpha_r - 1.0)
-        else: expected_r_inv = self.beta_r
-        
-        KXZ_KZZ_inv = torch.cholesky_solve(K_ZX_batch, L_ZZ).T
-        var_f_term1 = expected_r_inv * (k_ii_batch - (KXZ_KZZ_inv * K_XZ_batch).sum(dim=1))
-        var_f_term2 = (KXZ_KZZ_inv @ self.S_u * KXZ_KZZ_inv).sum(dim=1)
-        var_f = (var_f_term1 + var_f_term2).unsqueeze(1)
-        
-        expected_sq_error = (y_batch - expected_f_mean).pow(2) + var_f
-        
-        log_lik_batch = 0.5 * torch.sum(expected_log_lambda - math.log(2 * math.pi) - torch.log(params['sigma_sq']) - \
-                                  (expected_lambda / params['sigma_sq']) * expected_sq_error)
-        
-        # ★★★ SCALE DATA-DEPENDENT TERM ★★★
-        log_lik = log_lik_batch * (self.N / B)
-
-        # --- 2. KL Divergences ---
-        # KL[q(r) || p(r)] (Global term, NOT scaled)
-        p_alpha_r, p_beta_r = params['nu_f'] / 2.0, params['nu_f'] / 2.0
-        kl_r = (self.alpha_r - p_alpha_r) * torch.digamma(self.alpha_r) - torch.lgamma(self.alpha_r) + torch.lgamma(p_alpha_r) + \
-               p_alpha_r * (torch.log(self.beta_r) - torch.log(p_beta_r)) + self.alpha_r * (p_beta_r - self.beta_r) / self.beta_r
-        
-        # KL[q(u) || p(u)] (Global term, NOT scaled)
-        expected_log_r = torch.digamma(self.alpha_r) - torch.log(self.beta_r)
-        expected_r = self.alpha_r / self.beta_r
-        
-        L_S = torch.linalg.cholesky(self.S_u + torch.eye(self.M, dtype=self.S_u.dtype, device=self.S_u.device) * 1e-6)
-        logdet_S_u = 2 * torch.sum(torch.log(torch.diag(L_S)))
-        logdet_K_ZZ = 2 * torch.sum(torch.log(torch.diag(L_ZZ)))
-        trace_KZZinv_Su = torch.trace(torch.cholesky_solve(self.S_u, L_ZZ))
-        m_T_KZZinv_m = self.m_u.T @ KZZ_inv_m_u
-        expected_u_quadratic = trace_KZZinv_Su + m_T_KZZinv_m
-        
-        kl_u = 0.5 * (-logdet_S_u - self.M * expected_log_r + logdet_K_ZZ + expected_r * expected_u_quadratic - self.M).squeeze()
-        
-        # KL[q(lambda) || p(lambda)] (Data-dependent term)
-        p_alpha_lambda, p_beta_lambda = params['nu_epsilon'] / 2.0, params['nu_epsilon'] / 2.0
-        kl_lambda_batch = torch.sum((alpha_lambda_batch - p_alpha_lambda) * torch.digamma(alpha_lambda_batch) - \
-                    torch.lgamma(alpha_lambda_batch) + torch.lgamma(p_alpha_lambda) + \
-                    p_alpha_lambda * (torch.log(beta_lambda_batch) - torch.log(p_beta_lambda)) + \
-                    alpha_lambda_batch * (p_beta_lambda - beta_lambda_batch) / beta_lambda_batch)
-        
-        # ★★★ SCALE DATA-DEPENDENT TERM ★★★
-        kl_lambda = kl_lambda_batch * (self.N / B)
-        
-        # Calculate log prior for hyperparameters
-        params = self._get_hyperparams()
-        log_prior = 0.0
-        log_prior += self.lengthscale_prior.log_prob(params['lengthscale']).sum()
-        log_prior += self.variance_prior.log_prob(params['variance'])
-        log_prior += self.sigma_sq_prior.log_prob(params['sigma_sq'])
-        log_prior += self.nu_prior.log_prob(params['nu_f'])
-        log_prior += self.nu_prior.log_prob(params['nu_epsilon'])
-
-        return log_lik - kl_u - kl_r - kl_lambda + log_prior
-
-    def fit(self, epochs=100, batch_size=64, cavi_max_iter=5, lr=0.01, cavi_tol=1e-5):
-        """Runs the full Variational EM algorithm using mini-batches."""
-        parameters_to_optimize = [
-            self.log_nu_f, self.log_nu_epsilon, self.log_sigma_sq,
-            self.log_kernel_lengthscale, self.log_kernel_variance, self.Z
-        ]
-        optimizer = optim.Adam(parameters_to_optimize, lr=lr)
-        
-        # Create DataLoader for mini-batching
-        # self.X_full and self.y_full are already on the correct device
-        dataset = TensorDataset(self.X_full, self.y_full)
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        
-        elbo_history = []
-        print(f"Starting Variational EM optimization for {epochs} epochs with batch size {batch_size}...")
-        for epoch in range(epochs):
-            for i, (X_batch, y_batch) in enumerate(dataloader):
-                # Data batches are already on the correct device because the source dataset was.
-                
-                # E-Step: Update global variational params and get local ones for the batch
-                alpha_lambda_batch, beta_lambda_batch = self._e_step(X_batch, y_batch, cavi_max_iter=cavi_max_iter, cavi_tol=cavi_tol)
-                
-                # M-Step: Update hyperparameters using the stochastic ELBO from the batch
-                elbo = self._m_step(optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
-                
-                elbo_history.append(elbo)
-            
-            if (epoch + 1) % 10 == 0:
-                print(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo:.4f}")
-                logging.info(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo:.4f}")
-                params = self._get_hyperparams()
-                nu_f = params['nu_f'].item()
-                nu_epsilon = params['nu_epsilon'].item()
-                # lengthscale = params['lengthscale'].item()
-                variance = params['variance'].item()
-                sigma_sq = params['sigma_sq'].item()
-
-                lengthscale_val = params['lengthscale'].detach().cpu().numpy()
-                ls_str = np.array2string(lengthscale_val, precision=3, floatmode='fixed')
-
-                logging.info(f"Current Hyperparameters: nu_f={nu_f}, nu_epsilon={nu_epsilon}, "
-                             f"lengthscale={ls_str}, variance={variance}, sigma_sq={sigma_sq}")
-        
-        print("\nOptimization finished.")
-        return elbo_history
-
-    def predict(self, X_test):
-        """
-        Makes predictions for new data X_test.
-        """
-        # Move test data to the same device as the model
-        X_test = X_test.to(self.device)
-        
-        with torch.no_grad():
-            params = self._get_hyperparams()
-            
-            K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-            L_ZZ = torch.linalg.cholesky(K_ZZ)
-            K_star_Z = rbf_kernel(X_test, self.Z, params['lengthscale'], params['variance'])
-            k_star_star = rbf_kernel(X_test, X_test, params['lengthscale'], params['variance']).diag()
-
-            KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
-            pred_mean = K_star_Z @ KZZ_inv_m_u
-
-            K_star_Z_K_ZZ_inv = torch.cholesky_solve(K_star_Z.T, L_ZZ, upper=False).T
-            
-            gp_var = k_star_star - (K_star_Z_K_ZZ_inv * K_star_Z).sum(dim=1) + \
-                     (K_star_Z_K_ZZ_inv @ self.S_u * K_star_Z_K_ZZ_inv).sum(dim=1)
-            
-            pred_nu = 2 * self.alpha_r
-            pred_scale_sq = (gp_var * (self.beta_r / self.alpha_r)).unsqueeze(1)
-            
-            return pred_mean, pred_scale_sq, pred_nu
-
-    def evaluate_model(self, epochs=100, batch_size=64, cavi_max_iter=5, lr=0.01, cavi_tol=1e-5,
-                       X_test=None, y_test=None, eval_interval=10,
-                       result_path=None):
-        """
-        Fits the model using mini-batches and periodically evaluates/saves performance on test data.
-        This method is resilient to timeouts by appending results to a file.
-
-        Args:
-            epochs (int): Total number of epochs to train.
-            batch_size (int): The size of each mini-batch.
-            cavi_max_iter (int): Max iterations for the inner CAVI loop.
-            lr (float): Learning rate for the optimizer.
-            cavi_tol (float): Convergence tolerance for CAVI.
-            X_test (torch.Tensor, optional): Test inputs for evaluation.
-            y_test (torch.Tensor, optional): Test targets for evaluation.
-            eval_interval (int): The interval (in epochs) at which to evaluate.
-            result_path (pathlib.Path, optional): Path to save the intermediate results CSV.
-                                                  If provided, results are appended.
-        """
-        # --- Optimizer Setup ---
-        parameters_to_optimize = [
-            self.log_nu_f, self.log_nu_epsilon, self.log_sigma_sq,
-            self.log_kernel_lengthscale, self.log_kernel_variance, self.Z
-        ]
-        optimizer = optim.Adam(parameters_to_optimize, lr=lr)
-
-        # --- DataLoader Setup ---
-        dataset = TensorDataset(self.X_full, self.y_full)
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
-        # --- Timeout Resilience Setup ---
-        can_evaluate = X_test is not None and y_test is not None and result_path is not None
-        if can_evaluate:
-            # Move test data to the model's device once
-            X_test_dev = X_test.to(self.device)
-            y_test_dev = y_test.to(self.device)
-            # Create the results file with a header if it doesn't exist
-            if not result_path.exists():
-                result_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(result_path, 'w') as f:
-                    f.write("epoch,rmse\n")
-        # -----------------------------------------
-
-        print(f"Starting Variational EM optimization for {epochs} epochs with batch size {batch_size}...")
-        for epoch in range(epochs):
-            elbo = 0.0
-            # --- Training Loop for one epoch ---
-            for i, (X_batch, y_batch) in enumerate(dataloader):
-                # E-Step
-                alpha_lambda_batch, beta_lambda_batch = self._e_step(X_batch, y_batch, cavi_max_iter=cavi_max_iter, cavi_tol=cavi_tol)
-                # M-Step
-                elbo = self._m_step(optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
-
-                params = self._get_hyperparams()
-                nu_f = params['nu_f'].item()
-                nu_epsilon = params['nu_epsilon'].item()
-                # lengthscale = params['lengthscale'].item()
-                variance = params['variance'].item()
-                sigma_sq = params['sigma_sq'].item()
-
-                lengthscale_val = params['lengthscale'].detach().cpu().numpy()
-                ls_str = np.array2string(lengthscale_val, precision=3, floatmode='fixed')
-
-                logging.info(f"Current Hyperparameters: nu_f={nu_f}, nu_epsilon={nu_epsilon}, "
-                             f"lengthscale={ls_str}, variance={variance}, sigma_sq={sigma_sq}")
-
-            # --- Periodic Evaluation and Saving ---
-            if can_evaluate and (epoch + 1) % eval_interval == 0:
-                with torch.no_grad():
-                    pred_mean, _, _ = self.predict(X_test_dev)
-
-                    logging.info(f"pred_mean: {pred_mean}")
-
-                    # Ensure y_test is on the same device for comparison
-                    rmse = torch.sqrt(torch.mean((y_test_dev.view(-1) - pred_mean.view(-1))**2)).item()
-                
-                logging.info(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo:.4f}, Test RMSE: {rmse:.4f}")
-                
-                # Append the result to the file
-                with open(result_path, 'a') as f:
-                    f.write(f"{epoch+1},{rmse}\n")
-        
-        # --- Final Evaluation and Saving (if the loop completes) ---
-        if can_evaluate:
-             with torch.no_grad():
-                pred_mean, _, _ = self.predict(X_test_dev)
-                rmse = torch.sqrt(torch.mean((y_test_dev.view(-1) - pred_mean.view(-1))**2)).item()
-             
-             # Append the final result only if the last epoch wasn't an evaluation epoch
-             if epochs % eval_interval != 0:
-                 with open(result_path, 'a') as f:
-                    f.write(f"{epochs},{rmse}\n")
-        
-        print("\nOptimization finished.")
-
-
-
-
-
-
-
-
-
-# # tprt.py (交互更新・SVI修正版)
-
-# from .kernels import rbf_kernel
-# from .priors import GammaPrior, LogNormalPrior
-# import torch
-# import torch.nn as nn
-# import torch.optim as optim
-# import math
-# from torch.utils.data import DataLoader, TensorDataset
-# import logging
-# import numpy as np
-
-
-# class SparseTPRTMiniBatch(nn.Module):
-#     """
-#     【交互更新 SVI修正版】
-#     Eステップ（変分パラメータ更新）とMステップ（ハイパーパラメータ更新）を
-#     交互に行う確率的変分EMアルゴリズムを実装。
-#     """
-#     def __init__(self, X, y, M, nu_f=2.1, nu_e=2.1,
-#                  kernel_lengthscale=None, kernel_variance=1.0,
-#                  likelihood_sigma=1.0, device=None):
-#         super().__init__()
-
-#         if device is None:
-#             self.device = X.device
-#         else:
-#             self.device = torch.device(device)
-
-#         self.register_buffer('X_full', X.to(self.device))
-#         self.register_buffer('y_full', y.view(-1, 1).to(self.device))
-
-#         if self.X_full.ndim == 1: self.X_full = self.X_full.unsqueeze(1)
-#         if self.y_full.ndim == 1: self.y_full = self.y_full.unsqueeze(1)
-
-#         self.N, self.D = self.X_full.shape
-#         self.M = M
-#         dtype = self.X_full.dtype
-
-#         # --- ARD/Isotropic 自動対応 ---
-#         if kernel_lengthscale is None:
-#             kernel_lengthscale = torch.ones(self.D, dtype=dtype)
-#         else:
-#             kernel_lengthscale = torch.as_tensor(kernel_lengthscale, dtype=dtype)
-#         if kernel_lengthscale.ndim == 0:
-#             kernel_lengthscale = kernel_lengthscale.repeat(self.D)
-#         if kernel_lengthscale.shape[0] != self.D:
-#             raise ValueError(f"lengthscale must be a scalar or a vector of length D={self.D}")
-
-#         # --- Mステップで更新するハイパーパラメータ ---
-#         self.log_kernel_lengthscale = nn.Parameter(torch.log(kernel_lengthscale))
-#         self.log_kernel_variance = nn.Parameter(torch.log(torch.tensor(kernel_variance, dtype=dtype)))
-#         self.log_nu_f = nn.Parameter(torch.log(torch.tensor(nu_f, dtype=dtype)))
-#         self.log_nu_epsilon = nn.Parameter(torch.log(torch.tensor(nu_e, dtype=dtype)))
-#         self.log_sigma_sq = nn.Parameter(torch.log(torch.tensor(likelihood_sigma**2, dtype=dtype)))
-#         self.Z = nn.Parameter(self._initialize_inducing_points())
-
-#         # --- Priors ---
-#         self.lengthscale_prior = GammaPrior(3.0, 6.0)
-#         self.variance_prior = GammaPrior(2.0, 0.15)
-#         self.sigma_sq_prior = GammaPrior(1.1, 0.05)
-#         self.nu_prior = LogNormalPrior(loc=1.0, scale=1.0)
-
-#         # --- Eステップで更新する変分パラメータ (Bufferとして保持) ---
-#         self.register_buffer('m_u', torch.zeros(self.M, 1, dtype=dtype))
-#         self.register_buffer('S_u', torch.eye(self.M, dtype=dtype))
-#         self.register_buffer('alpha_r', torch.tensor(1.0, dtype=dtype))
-#         self.register_buffer('beta_r', torch.tensor(1.0, dtype=dtype))
-
-#         self.to(self.device)
-
-#     def _initialize_inducing_points(self):
-#         min_bounds = self.X_full.min(dim=0).values
-#         max_bounds = self.X_full.max(dim=0).values
-#         sobol_engine = torch.quasirandom.SobolEngine(dimension=self.D, scramble=True, seed=0)
-#         sobol_points_unit = sobol_engine.draw(self.M).to(dtype=self.X_full.dtype, device=self.device)
-#         return min_bounds + sobol_points_unit * (max_bounds - min_bounds)
-
-#     def _get_hyperparams(self):
-#         return {
-#             "nu_f": torch.exp(self.log_nu_f),
-#             "nu_epsilon": torch.exp(self.log_nu_epsilon),
-#             "sigma_sq": torch.exp(self.log_sigma_sq),
-#             "lengthscale": torch.exp(self.log_kernel_lengthscale),
-#             "variance": torch.exp(self.log_kernel_variance)
-#         }
-
-#     def _e_step(self, X_batch, y_batch, rho):
-#         """
-#         E-Step: ミニバッチ情報を使って変分パラメータを確率的に更新する。
-#         """
-#         with torch.no_grad():
-#             params = self._get_hyperparams()
-#             K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-#             L_ZZ = torch.linalg.cholesky(K_ZZ)
-            
-#             # --- 1. バッチ局所的な q(λ) を計算 ---
-#             # この計算には現在のグローバルな q(u), q(r) が必要
-#             K_XZ_batch = rbf_kernel(X_batch, self.Z, params['lengthscale'], params['variance'])
-#             k_ii_batch = params['variance'].expand(X_batch.shape[0])
-
-#             if self.alpha_r > 1: expected_r_inv = self.beta_r / (self.alpha_r - 1.0)
-#             else: expected_r_inv = self.beta_r
-            
-#             KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
-#             expected_f_mean = K_XZ_batch @ KZZ_inv_m_u
-#             KXZ_KZZ_inv = torch.cholesky_solve(K_XZ_batch.T, L_ZZ).T
-            
-#             var_f_term1 = expected_r_inv * (k_ii_batch - (KXZ_KZZ_inv * K_XZ_batch).sum(dim=1))
-#             var_f_term2 = (KXZ_KZZ_inv @ self.S_u @ KXZ_KZZ_inv.T).diag()
-#             var_f = (var_f_term1 + var_f_term2).unsqueeze(1)
-            
-#             expected_sq_error = (y_batch - expected_f_mean).pow(2) + var_f
-#             alpha_lambda_local = params['nu_epsilon'] / 2.0 + 0.5
-#             beta_lambda_local = params['nu_epsilon'] / 2.0 + (0.5 / params['sigma_sq']) * expected_sq_error
-            
-#             # --- 2. q(u), q(r) の局所的な最適値を計算 ---
-#             expected_r = self.alpha_r / self.beta_r
-#             expected_lambda = alpha_lambda_local.squeeze() / beta_lambda_local.squeeze()
-#             c = expected_lambda / params['sigma_sq']
-            
-#             # q(u) の更新式
-#             B = (K_XZ_batch.T * c) @ K_XZ_batch
-#             precision_inner = expected_r * K_ZZ + B
-#             L_precision_inner = torch.linalg.cholesky(precision_inner + torch.eye(self.M, dtype=K_ZZ.dtype, device=K_ZZ.device) * 1e-6)
-#             tmp_S = torch.cholesky_solve(K_ZZ, L_precision_inner)
-#             S_u_local = K_ZZ @ tmp_S
-#             y_term = K_XZ_batch.T @ (y_batch.squeeze() * c)
-#             m_u_unscaled = torch.cholesky_solve(y_term.unsqueeze(1), L_precision_inner)
-#             m_u_local = K_ZZ @ m_u_unscaled
-            
-#             # q(r) の更新式
-#             trace_term = torch.trace(torch.cholesky_solve(S_u_local, L_ZZ))
-#             KZZ_inv_m_u_local = torch.cholesky_solve(m_u_local, L_ZZ)
-#             mean_term = m_u_local.T @ KZZ_inv_m_u_local
-#             expected_u_quadratic = trace_term + mean_term
-            
-#             alpha_r_local = params['nu_f'] / 2.0 + self.M / 2.0
-#             beta_r_local_val = params['nu_f'] / 2.0 + 0.5 * expected_u_quadratic.squeeze()
-
-#             # --- 3. グローバル変分パラメータをステップ更新 ---
-#             self.m_u.data = (1 - rho) * self.m_u.data + rho * m_u_local.data
-#             self.S_u.data = (1 - rho) * self.S_u.data + rho * S_u_local.data
-#             self.alpha_r.data = (1 - rho) * self.alpha_r.data + rho * alpha_r_local.data
-#             self.beta_r.data = (1 - rho) * self.beta_r.data + rho * beta_r_local_val.data
-
-#             # MステップでELBO計算に使うため、最新の局所的なλのパラメータを返す
-#             return alpha_lambda_local, beta_lambda_local
-
-#     def _m_step(self, optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch):
-#         """
-#         M-Step: ELBOに基づいてハイパーパラメータを更新する。
-#         """
-#         optimizer.zero_grad()
-#         elbo = self._calculate_elbo(X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
-#         loss = -elbo
-#         loss.backward()
-#         optimizer.step()
-#         return elbo.item()
-        
-#     def _calculate_elbo(self, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch):
-#         # この関数はMステップ専用。Eステップで更新された最新の変分パラメータを使ってELBOを計算する
-#         B = X_batch.shape[0]
-#         params = self._get_hyperparams()
-        
-#         K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-#         L_ZZ = torch.linalg.cholesky(K_ZZ)
-#         K_XZ_batch = rbf_kernel(X_batch, self.Z, params['lengthscale'], params['variance'])
-#         k_ii_batch = params['variance'].expand(B)
-        
-#         # 期待対数尤度
-#         expected_log_lambda = torch.digamma(alpha_lambda_batch) - torch.log(beta_lambda_batch)
-#         expected_lambda = alpha_lambda_batch / beta_lambda_batch
-        
-#         KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
-#         expected_f_mean = K_XZ_batch @ KZZ_inv_m_u
-
-#         if self.alpha_r > 1: expected_r_inv = self.beta_r / (self.alpha_r - 1.0)
-#         else: expected_r_inv = self.beta_r
-        
-#         KXZ_KZZ_inv = torch.cholesky_solve(K_XZ_batch.T, L_ZZ).T
-#         var_f_term1 = expected_r_inv * (k_ii_batch - (KXZ_KZZ_inv * K_XZ_batch).sum(dim=1))
-#         var_f_term2 = (KXZ_KZZ_inv @ self.S_u @ KXZ_KZZ_inv.T).diag()
-#         var_f = (var_f_term1 + var_f_term2).unsqueeze(1)
-        
-#         expected_sq_error = (y_batch - expected_f_mean).pow(2) + var_f
-#         log_lik_batch = 0.5 * torch.sum(expected_log_lambda - math.log(2 * math.pi) - torch.log(params['sigma_sq']) - \
-#                                   (expected_lambda / params['sigma_sq']) * expected_sq_error)
-#         log_lik = log_lik_batch * (self.N / B)
-
-#         # KLダイバージェンス
-#         p_alpha_r, p_beta_r = params['nu_f'] / 2.0, params['nu_f'] / 2.0
-#         kl_r = (self.alpha_r - p_alpha_r) * torch.digamma(self.alpha_r) - torch.lgamma(self.alpha_r) + torch.lgamma(p_alpha_r) + \
-#                p_alpha_r * (torch.log(self.beta_r) - torch.log(p_beta_r)) + self.alpha_r * (p_beta_r - self.beta_r) / self.beta_r
-        
-#         expected_log_r = torch.digamma(self.alpha_r) - torch.log(self.beta_r)
-#         expected_r = self.alpha_r / self.beta_r
-#         L_S = torch.linalg.cholesky(self.S_u + torch.eye(self.M, dtype=self.S_u.dtype, device=self.S_u.device) * 1e-6)
-#         logdet_S_u = 2 * torch.sum(torch.log(torch.diag(L_S)))
-#         logdet_K_ZZ = 2 * torch.sum(torch.log(torch.diag(L_ZZ)))
-#         trace_KZZinv_Su = torch.trace(torch.cholesky_solve(self.S_u, L_ZZ))
-#         m_T_KZZinv_m = self.m_u.T @ KZZ_inv_m_u
-#         kl_u = 0.5 * (-logdet_S_u - self.M * expected_log_r + logdet_K_ZZ + expected_r * (trace_KZZinv_Su + m_T_KZZinv_m) - self.M).squeeze()
-        
-#         p_alpha_lambda, p_beta_lambda = params['nu_epsilon'] / 2.0, params['nu_epsilon'] / 2.0
-#         kl_lambda_batch = torch.sum((alpha_lambda_batch - p_alpha_lambda) * torch.digamma(alpha_lambda_batch) - \
-#                     torch.lgamma(alpha_lambda_batch) + torch.lgamma(p_alpha_lambda) + \
-#                     p_alpha_lambda * (torch.log(beta_lambda_batch) - torch.log(p_beta_lambda)) + \
-#                     alpha_lambda_batch * (p_beta_lambda - beta_lambda_batch) / beta_lambda_batch)
-#         kl_lambda = kl_lambda_batch * (self.N / B)
-        
-#         log_prior = self.lengthscale_prior.log_prob(params['lengthscale']).sum() + \
-#                     self.variance_prior.log_prob(params['variance']) + \
-#                     self.sigma_sq_prior.log_prob(params['sigma_sq']) + \
-#                     self.nu_prior.log_prob(params['nu_f']) + \
-#                     self.nu_prior.log_prob(params['nu_epsilon'])
-
-#         return log_lik - kl_u - kl_r - kl_lambda + log_prior
-
-#     def fit(self, epochs=100, batch_size=64, lr=0.01, rho=0.05):
-#         # ハイパーパラメータ専用のオプティマイザ
-#         parameters_to_optimize = [
-#             self.log_nu_f, self.log_nu_epsilon, self.log_sigma_sq,
-#             self.log_kernel_lengthscale, self.log_kernel_variance, self.Z
-#         ]
-#         optimizer = optim.Adam(parameters_to_optimize, lr=lr)
-        
-#         dataset = TensorDataset(self.X_full, self.y_full)
-#         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        
-#         elbo_history = []
-#         print(f"Starting Variational EM optimization for {epochs} epochs with batch size {batch_size}...")
-#         for epoch in range(epochs):
-#             for i, (X_batch, y_batch) in enumerate(dataloader):
-#                 # 1. E-Step: 変分パラメータを確率的更新
-#                 alpha_lambda_batch, beta_lambda_batch = self._e_step(X_batch, y_batch, rho=rho)
-                
-#                 # 2. M-Step: ハイパーパラメータを勾配更新
-#                 elbo = self._m_step(optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
-                
-#                 elbo_history.append(elbo)
-            
-#             if (epoch + 1) % 10 == 0:
-#                 print(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo:.4f}")
-        
-#         print("\nOptimization finished.")
-#         return elbo_history
-
-#     def predict(self, X_test):
-#         X_test = X_test.to(self.device)
-#         with torch.no_grad():
-#             params = self._get_hyperparams()
-#             K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-#             L_ZZ = torch.linalg.cholesky(K_ZZ)
-#             K_star_Z = rbf_kernel(X_test, self.Z, params['lengthscale'], params['variance'])
-#             k_star_star = rbf_kernel(X_test, X_test, params['lengthscale'], params['variance']).diag()
-
-#             KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
-#             pred_mean = K_star_Z @ KZZ_inv_m_u
-
-#             K_star_Z_K_ZZ_inv = torch.cholesky_solve(K_star_Z.T, L_ZZ, upper=False).T
-            
-#             gp_var = k_star_star - (K_star_Z_K_ZZ_inv * K_star_Z).sum(dim=1) + \
-#                      (K_star_Z_K_ZZ_inv @ self.S_u @ K_star_Z_K_ZZ_inv.T).diag()
-            
-#             pred_nu = 2 * self.alpha_r
-#             pred_scale_sq = (gp_var * (self.beta_r / self.alpha_r)).unsqueeze(1)
-            
-#             return pred_mean, pred_scale_sq, pred_nu
-    
-#     def evaluate_model(self, epochs=100, batch_size=64, lr=0.01, rho=0.05,
-#                        X_test=None, y_test=None, eval_interval=10,
-#                        result_path=None):
-
-#         parameters_to_optimize = [
-#             self.log_nu_f, self.log_nu_epsilon, self.log_sigma_sq,
-#             self.log_kernel_lengthscale, self.log_kernel_variance, self.Z
-#         ]
-#         optimizer = optim.Adam(parameters_to_optimize, lr=lr)
-
-#         dataset = TensorDataset(self.X_full, self.y_full)
-#         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
-#         can_evaluate = X_test is not None and y_test is not None and result_path is not None
-#         if can_evaluate:
-#             X_test_dev, y_test_dev = X_test.to(self.device), y_test.to(self.device)
-#             if not result_path.exists():
-#                 result_path.parent.mkdir(parents=True, exist_ok=True)
-#                 with open(result_path, 'w') as f:
-#                     f.write("epoch,rmse,elbo\n")
-
-#         print(f"Starting Variational EM optimization for {epochs} epochs with batch size {batch_size}...")
-#         for epoch in range(epochs):
-#             elbo_val = 0.0
-#             for i, (X_batch, y_batch) in enumerate(dataloader):
-#                 # 1. E-Step
-#                 alpha_lambda_batch, beta_lambda_batch = self._e_step(X_batch, y_batch, rho=rho)
-                
-#                 # 2. M-Step
-#                 elbo_val = self._m_step(optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
-
-#             if can_evaluate and (epoch + 1) % eval_interval == 0:
-#                 with torch.no_grad():
-#                     pred_mean, _, _ = self.predict(X_test_dev)
-#                     rmse = torch.sqrt(torch.mean((y_test_dev.view(-1) - pred_mean.view(-1))**2)).item()
-                
-#                 logging.info(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo_val:.4f}, Test RMSE: {rmse:.4f}")
-                
-#                 with open(result_path, 'a') as f:
-#                     f.write(f"{epoch+1},{rmse},{elbo_val}\n")
-        
-#         if can_evaluate:
-#              with torch.no_grad():
-#                 pred_mean, _, _ = self.predict(X_test_dev)
-#                 rmse = torch.sqrt(torch.mean((y_test_dev.view(-1) - pred_mean.view(-1))**2)).item()
-             
-#              if epochs > 0 and epochs % eval_interval != 0:
-#                  with open(result_path, 'a') as f:
-#                     f.write(f"{epochs},{rmse},{elbo_val}\n")
-        
-#         print("\nOptimization finished.")
-
-
-
-from .kernels import rbf_kernel
-from .priors import GammaPrior, LogNormalPrior
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import math
-from torch.utils.data import DataLoader, TensorDataset
-import logging
-import numpy as np
-from sklearn.cluster import KMeans # kmeansのために追加
-
-
-class SparseTPRTMiniBatch(nn.Module):
-    """
-    【交互更新 SVI修正版】
-    Eステップ（変分パラメータ更新）とMステップ（ハイパーパラメータ更新）を
-    交互に行う確率的変分EMアルゴリズムを実装。
+    【交互更新 SVI修正版】- Corrected and Efficient Version
+    This version restores the natural parameter update logic while retaining
+    performance optimizations.
     """
     def __init__(self, X, y, M, nu_f=2.1, nu_e=2.1,
                  kernel_lengthscale=None, kernel_variance=1.0,
@@ -1176,7 +24,7 @@ class SparseTPRTMiniBatch(nn.Module):
         super().__init__()
 
         if device is None:
-            self.device = X.device
+            self.device = X.device if isinstance(X, torch.Tensor) else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         else:
             self.device = torch.device(device)
 
@@ -1190,7 +38,6 @@ class SparseTPRTMiniBatch(nn.Module):
         self.M = M
         dtype = self.X_full.dtype
 
-        # --- ARD/Isotropic 自動対応 ---
         if kernel_lengthscale is None:
             kernel_lengthscale = torch.ones(self.D, dtype=dtype)
         else:
@@ -1200,7 +47,6 @@ class SparseTPRTMiniBatch(nn.Module):
         if kernel_lengthscale.shape[0] != self.D:
             raise ValueError(f"lengthscale must be a scalar or a vector of length D={self.D}")
 
-        # --- Mステップで更新するハイパーパラメータ ---
         self.log_kernel_lengthscale = nn.Parameter(torch.log(kernel_lengthscale))
         self.log_kernel_variance = nn.Parameter(torch.log(torch.tensor(kernel_variance, dtype=dtype)))
         self.log_nu_f = nn.Parameter(torch.log(torch.tensor(nu_f, dtype=dtype)))
@@ -1208,13 +54,11 @@ class SparseTPRTMiniBatch(nn.Module):
         self.log_sigma_sq = nn.Parameter(torch.log(torch.tensor(likelihood_sigma**2, dtype=dtype)))
         self.Z = nn.Parameter(self._initialize_inducing_points())
 
-        # --- Priors ---
         self.lengthscale_prior = GammaPrior(3.0, 6.0)
         self.variance_prior = GammaPrior(2.0, 0.15)
         self.sigma_sq_prior = GammaPrior(1.1, 0.05)
         self.nu_prior = LogNormalPrior(loc=1.0, scale=1.0)
 
-        # --- Eステップで更新する変分パラメータ (Bufferとして保持) ---
         self.register_buffer('m_u', torch.zeros(self.M, 1, dtype=dtype))
         self.register_buffer('S_u', torch.eye(self.M, dtype=dtype))
         self.register_buffer('alpha_r', torch.tensor(1.0, dtype=dtype))
@@ -1223,161 +67,129 @@ class SparseTPRTMiniBatch(nn.Module):
         self.to(self.device)
 
     def _initialize_inducing_points(self):
-        """
-        KMeansクラスタリングを用いて誘導点を初期化する。
-        データ点数(N)が誘導点の数(M)より多い場合は、データ全体でKMeansを実行し、
-        そのクラスター中心を誘導点の初期値とする。
-        NがMより少ない場合は、全データ点を初期値とし、不足分は既存のデータ点から
-        復元抽出し追加する。
-        """
         if self.N >= self.M:
-            # データ点数が誘導点数以上の場合、KMeansを実行
             X_np = self.X_full.cpu().numpy()
-            # scikit-learn 1.4以降での警告を避けるため n_init='auto' を指定
             kmeans = KMeans(n_clusters=self.M, random_state=0, n_init='auto').fit(X_np)
-            Z_init_np = kmeans.cluster_centers_
-            Z_init = torch.from_numpy(Z_init_np)
+            Z_init = torch.from_numpy(kmeans.cluster_centers_)
         else:
-            # データ点数が誘導点数より少ない場合
-            # 全てのデータ点を使い、不足分は復元抽出で補う
-            indices_all = np.arange(self.N)
-            indices_resample = np.random.choice(self.N, self.M - self.N, replace=True)
-            indices = np.concatenate([indices_all, indices_resample])
+            indices = np.random.choice(self.N, self.M, replace=True)
             Z_init = self.X_full[indices].clone()
-
         return Z_init.to(dtype=self.X_full.dtype, device=self.device)
 
     def _get_hyperparams(self):
         return {
-            "nu_f": torch.exp(self.log_nu_f),
-            "nu_epsilon": torch.exp(self.log_nu_epsilon),
-            "sigma_sq": torch.exp(self.log_sigma_sq),
-            "lengthscale": torch.exp(self.log_kernel_lengthscale),
+            "nu_f": torch.exp(self.log_nu_f), "nu_epsilon": torch.exp(self.log_nu_epsilon),
+            "sigma_sq": torch.exp(self.log_sigma_sq), "lengthscale": torch.exp(self.log_kernel_lengthscale),
             "variance": torch.exp(self.log_kernel_variance)
         }
 
-    def _e_step(self, X_batch, y_batch, rho):
-        """
-        E-Step: ミニバッチ情報を使って変分パラメータを確率的に更新する。
-        """
+    def _compute_common_terms(self, X_batch, params):
+        K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
+        L_ZZ = torch.linalg.cholesky(K_ZZ)
+        K_XZ_batch = rbf_kernel(X_batch, self.Z, params['lengthscale'], params['variance'])
+        KXZ_KZZ_inv = torch.linalg.solve(K_ZZ, K_XZ_batch.T).T
+        return K_ZZ, L_ZZ, K_XZ_batch, KXZ_KZZ_inv
+
+    def _e_step(self, X_batch, y_batch, rho, common_terms):
         with torch.no_grad():
             params = self._get_hyperparams()
-            K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-            L_ZZ = torch.linalg.cholesky(K_ZZ)
-            
-            # --- 1. バッチ局所的な q(λ) を計算 ---
-            # この計算には現在のグローバルな q(u), q(r) が必要
-            K_XZ_batch = rbf_kernel(X_batch, self.Z, params['lengthscale'], params['variance'])
+            K_ZZ, L_ZZ, K_XZ_batch, KXZ_KZZ_inv = common_terms
+
             k_ii_batch = params['variance'].expand(X_batch.shape[0])
 
-            if self.alpha_r > 1: expected_r_inv = self.beta_r / (self.alpha_r - 1.0)
-            else: expected_r_inv = self.beta_r
-            
+            expected_r_inv = self.beta_r / (self.alpha_r - 1.0) if self.alpha_r > 1 else self.beta_r
+
             KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
             expected_f_mean = K_XZ_batch @ KZZ_inv_m_u
-            KXZ_KZZ_inv = torch.cholesky_solve(K_XZ_batch.T, L_ZZ).T
-            
+
             var_f_term1 = expected_r_inv * (k_ii_batch - (KXZ_KZZ_inv * K_XZ_batch).sum(dim=1))
             var_f_term2 = (KXZ_KZZ_inv @ self.S_u @ KXZ_KZZ_inv.T).diag()
             var_f = (var_f_term1 + var_f_term2).unsqueeze(1)
-            
+
             expected_sq_error = (y_batch - expected_f_mean).pow(2) + var_f
             alpha_lambda_local = params['nu_epsilon'] / 2.0 + 0.5
             beta_lambda_local = params['nu_epsilon'] / 2.0 + (0.5 / params['sigma_sq']) * expected_sq_error
-            
-            # --- 2. q(u), q(r) の局所的な最適値を計算 ---
+
             expected_r = self.alpha_r / self.beta_r
             expected_lambda = alpha_lambda_local.squeeze() / beta_lambda_local.squeeze()
             c = expected_lambda / params['sigma_sq']
-            
-            # q(u) の更新式
+
             B = (K_XZ_batch.T * c) @ K_XZ_batch
             precision_inner = expected_r * K_ZZ + B
-            L_precision_inner = torch.linalg.cholesky(precision_inner + torch.eye(self.M, dtype=K_ZZ.dtype, device=K_ZZ.device) * 1e-6)
-            tmp_S = torch.cholesky_solve(K_ZZ, L_precision_inner)
-            S_u_local = K_ZZ @ tmp_S
-            y_term = K_XZ_batch.T @ (y_batch.squeeze() * c)
-            m_u_unscaled = torch.cholesky_solve(y_term.unsqueeze(1), L_precision_inner)
-            m_u_local = K_ZZ @ m_u_unscaled
+            L_precision_inner = torch.linalg.cholesky(precision_inner + torch.eye(self.M, device=K_ZZ.device) * 1e-6)
             
-            # q(r) の更新式
+            S_u_local = K_ZZ @ torch.cholesky_solve(K_ZZ, L_precision_inner)
+            y_term = K_XZ_batch.T @ (y_batch.squeeze() * c)
+            m_u_local = K_ZZ @ torch.cholesky_solve(y_term.unsqueeze(1), L_precision_inner)
+            
             trace_term = torch.trace(torch.cholesky_solve(S_u_local, L_ZZ))
             KZZ_inv_m_u_local = torch.cholesky_solve(m_u_local, L_ZZ)
             mean_term = m_u_local.T @ KZZ_inv_m_u_local
             expected_u_quadratic = trace_term + mean_term
-            
+
             alpha_r_local = params['nu_f'] / 2.0 + self.M / 2.0
             beta_r_local_val = params['nu_f'] / 2.0 + 0.5 * expected_u_quadratic.squeeze()
 
-            # --- 3. グローバル変分パラメータをステップ更新 ---
-            ################################################################
-            ################################################################
-            ################################################################
-            ################################################################
-            ################################################################
-            ################################################################
-            ################################################################
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            # これ更新方向間違ってるのでは
-            self.m_u.data = (1 - rho) * self.m_u.data + rho * m_u_local.data
-            self.S_u.data = (1 - rho) * self.S_u.data + rho * S_u_local.data
-            self.alpha_r.data = (1 - rho) * self.alpha_r.data + rho * alpha_r_local.data
-            self.beta_r.data = (1 - rho) * self.beta_r.data + rho * beta_r_local_val.data
+            ## <<< LOGIC RESTORED: Perform update in natural parameter space >>> ##
+            # 1. Convert global variational parameters to natural parameters
+            S_inv = torch.linalg.inv(self.S_u + torch.eye(self.M, dtype=self.S_u.dtype, device=self.S_u.device) * 1e-6)
+            eta_u1_global = S_inv @ self.m_u
+            eta_u2_global = -0.5 * S_inv
+            eta_r1_global = self.alpha_r - 1.0
+            eta_r2_global = -self.beta_r
 
-            # MステップでELBO計算に使うため、最新の局所的なλのパラメータを返す
+            # 2. Convert local variational parameters to natural parameters
+            S_local_inv = torch.linalg.inv(S_u_local + torch.eye(self.M, dtype=S_u_local.dtype, device=S_u_local.device) * 1e-6)
+            eta_u1_local = S_local_inv @ m_u_local
+            eta_u2_local = -0.5 * S_local_inv
+            eta_r1_local = alpha_r_local - 1.0
+            eta_r2_local = -beta_r_local_val
+
+            # 3. Linearly interpolate in natural parameter space
+            eta_u1_updated = (1 - rho) * eta_u1_global + rho * eta_u1_local
+            eta_u2_updated = (1 - rho) * eta_u2_global + rho * eta_u2_local
+            eta_r1_updated = (1 - rho) * eta_r1_global + rho * eta_r1_local
+            eta_r2_updated = (1 - rho) * eta_r2_global + rho * eta_r2_local
+            
+            # 4. Convert back to standard parameters and update buffers
+            S_u_updated = torch.linalg.inv(-2.0 * eta_u2_updated + torch.eye(self.M, dtype=S_u_local.dtype, device=S_u_local.device) * 1e-6)
+            m_u_updated = S_u_updated @ eta_u1_updated
+            alpha_r_updated = eta_r1_updated + 1.0
+            beta_r_updated = -eta_r2_updated
+
+            self.m_u.data = m_u_updated
+            self.S_u.data = S_u_updated
+            self.alpha_r.data = alpha_r_updated
+            self.beta_r.data = beta_r_updated
+            ## <<< END OF RESTORED LOGIC >>> ##
+
             return alpha_lambda_local, beta_lambda_local
 
-    def _m_step(self, optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch):
-        """
-        M-Step: ELBOに基づいてハイパーパラメータを更新する。
-        """
+    def _m_step_and_elbo(self, optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch, common_terms):
         optimizer.zero_grad()
-        elbo = self._calculate_elbo(X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
+        elbo = self._calculate_elbo(X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch, common_terms)
         loss = -elbo
         loss.backward()
+        # Add gradient clipping for stability
+        nn.utils.clip_grad_norm_(self.parameters(), max_norm=10.0)
         optimizer.step()
         return elbo.item()
-        
-    def _calculate_elbo(self, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch):
-        # この関数はMステップ専用。Eステップで更新された最新の変分パラメータを使ってELBOを計算する
+
+    def _calculate_elbo(self, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch, common_terms):
         B = X_batch.shape[0]
         params = self._get_hyperparams()
         
-        K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-        L_ZZ = torch.linalg.cholesky(K_ZZ)
-        K_XZ_batch = rbf_kernel(X_batch, self.Z, params['lengthscale'], params['variance'])
+        K_ZZ, L_ZZ, K_XZ_batch, KXZ_KZZ_inv = common_terms
         k_ii_batch = params['variance'].expand(B)
-        
-        # 期待対数尤度
+
         expected_log_lambda = torch.digamma(alpha_lambda_batch) - torch.log(beta_lambda_batch)
         expected_lambda = alpha_lambda_batch / beta_lambda_batch
         
         KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
         expected_f_mean = K_XZ_batch @ KZZ_inv_m_u
 
-        if self.alpha_r > 1: expected_r_inv = self.beta_r / (self.alpha_r - 1.0)
-        else: expected_r_inv = self.beta_r
+        expected_r_inv = self.beta_r / (self.alpha_r - 1.0) if self.alpha_r > 1 else self.beta_r
         
-        KXZ_KZZ_inv = torch.cholesky_solve(K_XZ_batch.T, L_ZZ).T
         var_f_term1 = expected_r_inv * (k_ii_batch - (KXZ_KZZ_inv * K_XZ_batch).sum(dim=1))
         var_f_term2 = (KXZ_KZZ_inv @ self.S_u @ KXZ_KZZ_inv.T).diag()
         var_f = (var_f_term1 + var_f_term2).unsqueeze(1)
@@ -1387,16 +199,17 @@ class SparseTPRTMiniBatch(nn.Module):
                                   (expected_lambda / params['sigma_sq']) * expected_sq_error)
         log_lik = log_lik_batch * (self.N / B)
 
-        # KLダイバージェンス
         p_alpha_r, p_beta_r = params['nu_f'] / 2.0, params['nu_f'] / 2.0
         kl_r = (self.alpha_r - p_alpha_r) * torch.digamma(self.alpha_r) - torch.lgamma(self.alpha_r) + torch.lgamma(p_alpha_r) + \
                p_alpha_r * (torch.log(self.beta_r) - torch.log(p_beta_r)) + self.alpha_r * (p_beta_r - self.beta_r) / self.beta_r
-        
+
         expected_log_r = torch.digamma(self.alpha_r) - torch.log(self.beta_r)
         expected_r = self.alpha_r / self.beta_r
+        
         L_S = torch.linalg.cholesky(self.S_u + torch.eye(self.M, dtype=self.S_u.dtype, device=self.S_u.device) * 1e-6)
         logdet_S_u = 2 * torch.sum(torch.log(torch.diag(L_S)))
         logdet_K_ZZ = 2 * torch.sum(torch.log(torch.diag(L_ZZ)))
+        
         trace_KZZinv_Su = torch.trace(torch.cholesky_solve(self.S_u, L_ZZ))
         m_T_KZZinv_m = self.m_u.T @ KZZ_inv_m_u
         kl_u = 0.5 * (-logdet_S_u - self.M * expected_log_r + logdet_K_ZZ + expected_r * (trace_KZZinv_Su + m_T_KZZinv_m) - self.M).squeeze()
@@ -1416,48 +229,59 @@ class SparseTPRTMiniBatch(nn.Module):
 
         return log_lik - kl_u - kl_r - kl_lambda + log_prior
 
-    def fit(self, epochs=100, batch_size=64, lr=0.01, rho=0.05):
-        # ハイパーパラメータ専用のオプティマイザ
+    def fit(self, epochs=100, batch_size=64, lr=0.01, rho=0.05,
+            X_test=None, y_test=None, eval_interval=10, result_path=None):
         parameters_to_optimize = [
             self.log_nu_f, self.log_nu_epsilon, self.log_sigma_sq,
             self.log_kernel_lengthscale, self.log_kernel_variance, self.Z
         ]
         optimizer = optim.Adam(parameters_to_optimize, lr=lr)
-        
         dataset = TensorDataset(self.X_full, self.y_full)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         
         elbo_history = []
-        print(f"Starting Variational EM optimization for {epochs} epochs with batch size {batch_size}...")
-        for epoch in range(epochs):
-            for i, (X_batch, y_batch) in enumerate(dataloader):
-                # 1. E-Step: 変分パラメータを確率的更新
-                alpha_lambda_batch, beta_lambda_batch = self._e_step(X_batch, y_batch, rho=rho)
-                
-                # 2. M-Step: ハイパーパラメータを勾配更新
-                elbo = self._m_step(optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
-                
-                elbo_history.append(elbo)
-            
-            if (epoch + 1) % 10 == 0:
-                print(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo:.4f}")
         
+        can_evaluate = X_test is not None and y_test is not None
+        if can_evaluate and result_path:
+            result_path = Path(result_path)
+            result_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(result_path, 'w') as f: f.write("epoch,rmse,elbo\n")
+
+        print(f"Starting Variational EM optimization for {epochs} epochs...")
+        for epoch in range(epochs):
+            elbo_val = 0.0
+            for X_batch, y_batch in dataloader:
+                params = self._get_hyperparams()
+                common_terms = self._compute_common_terms(X_batch, params)
+                alpha_lambda, beta_lambda = self._e_step(X_batch, y_batch, rho, common_terms)
+                elbo_val = self._m_step_and_elbo(optimizer, X_batch, y_batch, alpha_lambda, beta_lambda, common_terms)
+                elbo_history.append(elbo_val)
+            
+            if can_evaluate and (epoch + 1) % eval_interval == 0:
+                with torch.no_grad():
+                    pred_mean, _, _ = self.predict(X_test)
+                    rmse = torch.sqrt(torch.mean((y_test.view(-1) - pred_mean.view(-1))**2)).item()
+                
+                log_msg = f"Epoch {epoch+1}/{epochs}, ELBO: {elbo_val:.4f}, Test RMSE: {rmse:.4f}"
+                print(log_msg)
+                if result_path:
+                    with open(result_path, 'a') as f: f.write(f"{epoch+1},{rmse},{elbo_val}\n")
+            elif (epoch + 1) % 10 == 0:
+                 print(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo_val:.4f}")
+
         print("\nOptimization finished.")
         return elbo_history
 
     def predict(self, X_test):
-        X_test = X_test.to(self.device)
+        X_test_dev = X_test.to(self.device)
         with torch.no_grad():
             params = self._get_hyperparams()
-            K_ZZ = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + torch.eye(self.M, device=self.Z.device) * 1e-6
-            L_ZZ = torch.linalg.cholesky(K_ZZ)
-            K_star_Z = rbf_kernel(X_test, self.Z, params['lengthscale'], params['variance'])
-            k_star_star = rbf_kernel(X_test, X_test, params['lengthscale'], params['variance']).diag()
+            k_star_star = rbf_kernel(X_test_dev, X_test_dev, params['lengthscale'], params['variance']).diag()
 
+            _, L_ZZ, K_star_Z, K_star_Z_K_ZZ_inv = self._compute_common_terms(X_test_dev, params)
+            
             KZZ_inv_m_u = torch.cholesky_solve(self.m_u, L_ZZ)
             pred_mean = K_star_Z @ KZZ_inv_m_u
-
-            K_star_Z_K_ZZ_inv = torch.cholesky_solve(K_star_Z.T, L_ZZ, upper=False).T
             
             gp_var = k_star_star - (K_star_Z_K_ZZ_inv * K_star_Z).sum(dim=1) + \
                      (K_star_Z_K_ZZ_inv @ self.S_u @ K_star_Z_K_ZZ_inv.T).diag()
@@ -1466,55 +290,3 @@ class SparseTPRTMiniBatch(nn.Module):
             pred_scale_sq = (gp_var * (self.beta_r / self.alpha_r)).unsqueeze(1)
             
             return pred_mean, pred_scale_sq, pred_nu
-    
-    def evaluate_model(self, epochs=100, batch_size=64, lr=0.01, rho=0.05,
-                       X_test=None, y_test=None, eval_interval=10,
-                       result_path=None):
-
-        parameters_to_optimize = [
-            self.log_nu_f, self.log_nu_epsilon, self.log_sigma_sq,
-            self.log_kernel_lengthscale, self.log_kernel_variance, self.Z
-        ]
-        optimizer = optim.Adam(parameters_to_optimize, lr=lr)
-
-        dataset = TensorDataset(self.X_full, self.y_full)
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
-        can_evaluate = X_test is not None and y_test is not None and result_path is not None
-        if can_evaluate:
-            X_test_dev, y_test_dev = X_test.to(self.device), y_test.to(self.device)
-            if not result_path.exists():
-                result_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(result_path, 'w') as f:
-                    f.write("epoch,rmse,elbo\n")
-
-        print(f"Starting Variational EM optimization for {epochs} epochs with batch size {batch_size}...")
-        for epoch in range(epochs):
-            elbo_val = 0.0
-            for i, (X_batch, y_batch) in enumerate(dataloader):
-                # 1. E-Step
-                alpha_lambda_batch, beta_lambda_batch = self._e_step(X_batch, y_batch, rho=rho)
-                
-                # 2. M-Step
-                elbo_val = self._m_step(optimizer, X_batch, y_batch, alpha_lambda_batch, beta_lambda_batch)
-
-            if can_evaluate and (epoch + 1) % eval_interval == 0:
-                with torch.no_grad():
-                    pred_mean, _, _ = self.predict(X_test_dev)
-                    rmse = torch.sqrt(torch.mean((y_test_dev.view(-1) - pred_mean.view(-1))**2)).item()
-                
-                logging.info(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo_val:.4f}, Test RMSE: {rmse:.4f}")
-                
-                with open(result_path, 'a') as f:
-                    f.write(f"{epoch+1},{rmse},{elbo_val}\n")
-        
-        if can_evaluate:
-             with torch.no_grad():
-                pred_mean, _, _ = self.predict(X_test_dev)
-                rmse = torch.sqrt(torch.mean((y_test_dev.view(-1) - pred_mean.view(-1))**2)).item()
-             
-             if epochs > 0 and epochs % eval_interval != 0:
-                 with open(result_path, 'a') as f:
-                    f.write(f"{epochs},{rmse},{elbo_val}\n")
-        
-        print("\nOptimization finished.")
