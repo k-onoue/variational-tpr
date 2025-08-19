@@ -21,16 +21,16 @@ torch.manual_seed(42)
 # === 実験パラメータの一元管理 (Xu et al. 2023 に準拠) ===
 # 論文のSVTPに対応するモデルは SparseTPRTMiniBatch_Xu
 SPARSE_EVALUATION_CONFIG = {
-    # 'TPRT-SCAVI': {
-    #     'model_class': SparseTPRTMiniBatch,
-    #     'init_params': { 'nu_f': 2.0, 'nu_e': 2.0, 'kernel_lengthscale': 1.0, 'kernel_variance': 1.0, 'likelihood_sigma': 1.0 },
-    #     'fit_params': { 'epochs': 5000, 'batch_size': 1024, 'cavi_max_iter': 100, 'lr': 0.01, 'eval_interval': 10 }
-    # },
     'TPRT-SCAVI': {
         'model_class': SparseTPRTMiniBatch,
         'init_params': { 'nu_f': 2.0, 'nu_e': 2.0, 'kernel_lengthscale': 1.0, 'kernel_variance': 1.0, 'likelihood_sigma': 1.0 },
-        'fit_params': { 'epochs': 500, 'batch_size': 1024, 'cavi_max_iter': 100, 'lr': 0.01, 'eval_interval': 1 }
+        'fit_params': { 'epochs': 5000, 'batch_size': 1024, 'lr': 0.01, 'eval_interval': 10 }
     },
+    # 'TPRT-SCAVI': {
+    #     'model_class': SparseTPRTMiniBatch,
+    #     'init_params': { 'nu_f': 2.0, 'nu_e': 2.0, 'kernel_lengthscale': 1.0, 'kernel_variance': 1.0, 'likelihood_sigma': 1.0 },
+    #     'fit_params': { 'epochs': 5000, 'batch_size': 1024, 'lr': 0.01, 'eval_interval': 1 }
+    # },
     'SVTP-UB': {
         'model_class': SparseTPRTMiniBatch_Xu,
         'init_params': { 'nu_f': 2.0, 'nu_e': 2.0, 'kernel_lengthscale': 1.0, 'kernel_variance': 1.0, 'likelihood_sigma': 1.0 },

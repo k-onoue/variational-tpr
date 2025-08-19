@@ -10,8 +10,9 @@ MODELS_TO_EVALUATE=("GPyTorchSVGP")
 # --- データセットとスプリットの総数を定義 ---
 # 使用するデータセットのリスト
 DATASETS=("Elevators" "Kin8nm" "Kin8nm_Outliers" "Protein")
+DATASETS=("Protein")
 NUM_DATASETS=${#DATASETS[@]}
-NUM_SPLITS=5
+NUM_SPLITS=1
 TOTAL_TASKS=$((NUM_DATASETS * NUM_SPLITS))
 ARRAY_MAX_INDEX=$((TOTAL_TASKS - 1))
 

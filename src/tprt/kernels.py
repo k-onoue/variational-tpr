@@ -26,7 +26,8 @@ def rbf_kernel(X1, X2, lengthscale, variance=1.0):
 
 
 def matern52_kernel(X1, X2, lengthscale, variance=1.0):
+    _sqrt_5 = torch.sqrt(torch.tensor(5.0))
     sqdist = torch.cdist(X1 / lengthscale, X2 / lengthscale, p=2)
-    term1 = 1 + torch.sqrt(5) * sqdist + (5/3) * sqdist**2
-    term2 = torch.exp(-torch.sqrt(5) * sqdist)
+    term1 = 1 + _sqrt_5 * sqdist + (5/3) * sqdist**2
+    term2 = torch.exp(_sqrt_5 * sqdist)
     return variance * term1 * term2

@@ -60,7 +60,10 @@ echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
 DATASETS=(
     "Elevators" "Kin8nm" "Kin8nm_Outliers" "Protein"
 )
-NUM_SPLITS=5
+DATASETS=(
+    "Protein"
+)
+NUM_SPLITS=1
 NUM_DATASETS=${#DATASETS[@]}
 TASK_ID=$SLURM_ARRAY_TASK_ID
 

@@ -21,12 +21,12 @@ SPARSE_EVALUATION_CONFIG = {
     'TPRT-SCAVI': {
         'model_class': SparseTPRTMiniBatch,
         'init_params': { 'nu_f': 2.0, 'nu_e': 2.0, 'kernel_lengthscale': 1.0, 'kernel_variance': 1.0, 'likelihood_sigma': 1.0 },
-        'fit_params': { 'epochs': 5000, 'batch_size': 1024, 'lr': 0.01, 'eval_interval': 10 }
+        'fit_params': { 'epochs': 5000, 'batch_size': 1028, 'lr': 0.01, 'eval_interval': 1 }
     },
     'SVTP-UB': {
         'model_class': SparseTPRTMiniBatch_Xu,
         'init_params': { 'nu_f': 2.0, 'nu_e': 2.0, 'kernel_lengthscale': 1.0, 'kernel_variance': 1.0, 'likelihood_sigma': 1.0 },
-        'fit_params': { 'epochs': 5000, 'batch_size': 1024, 'lr': 0.01, 'kl_method': 'UB', 'eval_interval': 10 }
+        'fit_params': { 'epochs': 5000, 'batch_size': 1024, 'lr': 0.01, 'kl_method': 'UB', 'eval_interval': 1 }
     },
     'SVTP-MC': {
         'model_class': SparseTPRTMiniBatch_Xu,

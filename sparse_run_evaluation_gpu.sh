@@ -27,10 +27,13 @@ SAVE_DIR=$2
 # source /path/to/your/venv/bin/activate
 
 # --- データセットとスプリット数の定義 (新しい構成) --- ###
+# DATASETS=(
+#     "Elevators" "Kin8nm" "Kin8nm_Outliers" "Protein"
+# )
 DATASETS=(
-    "Elevators" "Kin8nm" "Kin8nm_Outliers" "Protein"
+    "Protein"
 )
-NUM_SPLITS=5
+NUM_SPLITS=1
 
 NUM_DATASETS=${#DATASETS[@]}
 TASK_ID=$SLURM_ARRAY_TASK_ID

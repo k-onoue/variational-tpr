@@ -8,8 +8,12 @@ from torch.utils.data import DataLoader, TensorDataset
 import math
 import copy
 import matplotlib.pyplot as plt
-import tqdm
+# import tqdm # tqdmを削除
 import pandas as pd
+import logging
+from pathlib import Path
+from sklearn.cluster import KMeans
+
 
 # Set default tensor type
 torch.set_default_dtype(torch.float64)
@@ -41,21 +45,27 @@ class SparseTPRTMiniBatch_Xu:
     and allows switching between UB and MC methods for the KL term.
     THE INTERNAL CALCULATION LOGIC IS PRESERVED FROM THE ORIGINAL WORKING SCRIPT.
     """
-    def __init__(self, X, y, M, nu_f=3.0, nu_e=3.0, kernel_lengthscale=1.0, kernel_variance=1.0, likelihood_sigma=0.1):
-        self.X_full = X
-        self.y_full = y.view(-1, 1)
-        self.N, self.D = X.shape
+    def __init__(self, X, y, M, nu_f=3.0, nu_e=3.0, kernel_lengthscale=1.0, kernel_variance=1.0, likelihood_sigma=0.1, device=None):
+        if device is None:
+            self.device = X.device if isinstance(X, torch.Tensor) else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = torch.device(device)
+
+        self.X_full = X.to(self.device)
+        self.y_full = y.view(-1, 1).to(self.device)
+        
+        self.N, self.D = self.X_full.shape
         self.M = M
 
         # --- Trainable Parameters ---
         Z_initial = self._initialize_inducing_points()
         self.Z = nn.Parameter(Z_initial)
         
-        self.log_kernel_lengthscale = nn.Parameter(torch.log(torch.tensor(kernel_lengthscale, dtype=X.dtype)))
-        self.log_kernel_variance = nn.Parameter(torch.log(torch.tensor(kernel_variance, dtype=X.dtype)))
-        self.log_likelihood_sigma = nn.Parameter(torch.log(torch.tensor(likelihood_sigma, dtype=X.dtype)))
-        self.log_nu_f_minus_2 = nn.Parameter(torch.log(torch.tensor(nu_f - 2.0, dtype=X.dtype)))
-        self.log_nu_e_minus_2 = nn.Parameter(torch.log(torch.tensor(nu_e - 2.0, dtype=X.dtype)))
+        self.log_kernel_lengthscale = nn.Parameter(torch.log(torch.tensor(kernel_lengthscale, dtype=self.X_full.dtype, device=self.device)))
+        self.log_kernel_variance = nn.Parameter(torch.log(torch.tensor(kernel_variance, dtype=self.X_full.dtype, device=self.device)))
+        self.log_likelihood_sigma = nn.Parameter(torch.log(torch.tensor(likelihood_sigma, dtype=self.X_full.dtype, device=self.device)))
+        self.log_nu_f_minus_2 = nn.Parameter(torch.log(torch.tensor(nu_f - 2.0, dtype=self.X_full.dtype, device=self.device)))
+        self.log_nu_e_minus_2 = nn.Parameter(torch.log(torch.tensor(nu_e - 2.0, dtype=self.X_full.dtype, device=self.device)))
 
         # --- Initialize Priors for Hyperparameters ---
         self.lengthscale_prior = GammaPrior(3.0, 6.0)
@@ -64,14 +74,14 @@ class SparseTPRTMiniBatch_Xu:
         self.nu_prior = LogNormalPrior(loc=1.0, scale=1.0)
 
         # --- Initialize Variational Parameters ---
-        self.mu_q = nn.Parameter(torch.zeros(self.M, dtype=X.dtype))
-        self.S_chol_q = nn.Parameter(torch.eye(self.M, dtype=X.dtype))
+        self.mu_q = nn.Parameter(torch.zeros(self.M, dtype=self.X_full.dtype, device=self.device))
+        self.S_chol_q = nn.Parameter(torch.eye(self.M, dtype=self.X_full.dtype, device=self.device))
 
     def _initialize_inducing_points(self):
         min_bounds = self.X_full.min(dim=0).values
         max_bounds = self.X_full.max(dim=0).values
         sobol_engine = torch.quasirandom.SobolEngine(dimension=self.D, scramble=True, seed=0)
-        sobol_points_unit = sobol_engine.draw(self.M).to(self.X_full.dtype)
+        sobol_points_unit = sobol_engine.draw(self.M).to(dtype=self.X_full.dtype, device=self.device)
         return min_bounds + sobol_points_unit * (max_bounds - min_bounds)
 
     def _get_hyperparams(self):
@@ -85,6 +95,7 @@ class SparseTPRTMiniBatch_Xu:
             "likelihood_sigma": torch.exp(self.log_likelihood_sigma),
             "lengthscale": torch.exp(self.log_kernel_lengthscale),
             "variance": torch.exp(self.log_kernel_variance),
+            "sigma_sq": torch.exp(self.log_likelihood_sigma)**2
         }
 
     # === CORE LOGIC METHODS (PRESERVED FROM ORIGINAL) ===
@@ -92,7 +103,7 @@ class SparseTPRTMiniBatch_Xu:
         r_inv_dist = Gamma(nu_q / 2, 0.5)
         r_inv = r_inv_dist.sample((num_samples,))
         r = 1.0 / r_inv
-        eps = torch.randn(self.M, num_samples, device=self.X_full.device)
+        eps = torch.randn(self.M, num_samples, device=self.device)
         u_samples = self.mu_q.unsqueeze(1) + self.S_chol_q @ (eps * torch.sqrt(r).T)
         return u_samples
 
@@ -101,7 +112,7 @@ class SparseTPRTMiniBatch_Xu:
         if method == 'MC':
             u_samples = self._sample_q_u(nu_q, num_samples=num_samples_kl)
             log_q_u = logpdf_st(u_samples, self.mu_q, S_q, nu_q)
-            log_p_u = logpdf_st(u_samples, torch.zeros(self.M, device=self.X_full.device), K_mm, nu_prior)
+            log_p_u = logpdf_st(u_samples, torch.zeros(self.M, device=self.device), K_mm, nu_prior)
             return torch.mean(log_q_u - log_p_u)
         
         elif method == 'UB':
@@ -130,9 +141,9 @@ class SparseTPRTMiniBatch_Xu:
 
     def _calculate_elbo(self, X_batch, y_batch, kl_method, num_samples_elbo, num_samples_kl):
         params = self._get_hyperparams()
-        S_q = self.S_chol_q @ self.S_chol_q.T + 1e-6 * torch.eye(self.M, device=self.X_full.device)
-        K_mm = rbf_kernel(self.Z, self.Z, params['variance'], params['lengthscale']) + 1e-6 * torch.eye(self.M, device=self.X_full.device)
-        K_nm = rbf_kernel(X_batch, self.Z, params['variance'], params['lengthscale'])
+        S_q = self.S_chol_q @ self.S_chol_q.T + 1e-6 * torch.eye(self.M, device=self.device)
+        K_mm = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + 1e-6 * torch.eye(self.M, device=self.device)
+        K_nm = rbf_kernel(X_batch, self.Z, params['lengthscale'], params['variance'])
         K_mm_inv = torch.inverse(K_mm)
 
         kl = self._kl_divergence(K_mm, S_q, params['nu_f'], params['nu_q'], method=kl_method, num_samples_kl=num_samples_kl)
@@ -140,20 +151,13 @@ class SparseTPRTMiniBatch_Xu:
         
         scale = self.N / X_batch.shape[0]
 
-        #################################################ç
-        #################################################ç
-        #################################################ç
-        #################################################ç
-        #################################################ç
-        #################################################ç
         # Calculate log prior for hyperparameters
-        params = self._get_hyperparams()
         log_prior = 0.0
         log_prior += self.lengthscale_prior.log_prob(params['lengthscale'])
         log_prior += self.variance_prior.log_prob(params['variance'])
         log_prior += self.sigma_sq_prior.log_prob(params['sigma_sq'])
         log_prior += self.nu_prior.log_prob(params['nu_f'])
-        log_prior += self.nu_prior.log_prob(params['nu_epsilon'])
+        log_prior += self.nu_prior.log_prob(params['nu_e'])
 
         return scale * exp_log_lik - kl + log_prior
 
@@ -173,8 +177,8 @@ class SparseTPRTMiniBatch_Xu:
         
         elbo_history = []
         print(f"🚀 Starting training with method: {kl_method}")
-        pbar = tqdm.trange(epochs)
-        for epoch in pbar:
+        for epoch in range(epochs):
+            final_elbo = 0.0
             for i, (X_batch, y_batch) in enumerate(dataloader):
                 optimizer.zero_grad()
                 elbo = self._calculate_elbo(X_batch, y_batch, kl_method, num_samples_elbo, num_samples_kl)
@@ -184,21 +188,26 @@ class SparseTPRTMiniBatch_Xu:
                     loss.backward()
                     optimizer.step()
                 
-                elbo_history.append(elbo.item())
+                final_elbo = elbo.item()
+                elbo_history.append(final_elbo)
             
-            pbar.set_description(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {elbo.item():.2f}")
+            if (epoch + 1) % 10 == 0:
+                print(f"Epoch {epoch+1}/{epochs}, Final Batch ELBO: {final_elbo:.2f}")
         
         print(f"✓ Training complete for method: {kl_method}")
         return elbo_history
 
     def predict(self, X_test, num_samples=500):
         """Makes predictions for new data X_test."""
+        # ===== 修正箇所 (ここから) =====
+        X_test = X_test.to(self.device)
+        # ===== 修正箇所 (ここまで) =====
         with torch.no_grad():
             params = self._get_hyperparams()
             
-            K_mm = rbf_kernel(self.Z, self.Z, params['variance'], params['lengthscale']) + 1e-6 * torch.eye(self.M, device=self.X_full.device)
-            K_star_m = rbf_kernel(X_test, self.Z, params['variance'], params['lengthscale'])
-            K_star_star_diag = torch.diag(rbf_kernel(X_test, X_test, params['variance'], params['lengthscale']))
+            K_mm = rbf_kernel(self.Z, self.Z, params['lengthscale'], params['variance']) + 1e-6 * torch.eye(self.M, device=self.device)
+            K_star_m = rbf_kernel(X_test, self.Z, params['lengthscale'], params['variance'])
+            K_star_star_diag = torch.diag(rbf_kernel(X_test, X_test, params['lengthscale'], params['variance']))
             K_mm_inv = torch.inverse(K_mm)
             
             u_samples = self._sample_q_u(params['nu_q'], num_samples=num_samples)
@@ -216,92 +225,68 @@ class SparseTPRTMiniBatch_Xu:
             var_likelihood = (params['likelihood_sigma']**2 * params['nu_e']) / (params['nu_e'] - 2)
             var_pred = var_f_total + var_likelihood
             
-            pred_nu = torch.tensor(float('inf'), device=self.X_full.device)
+            pred_nu = torch.tensor(float('inf'), device=self.device)
             return mu_pred.unsqueeze(1), var_pred.unsqueeze(1), pred_nu
+            
+    def evaluate_model(self, epochs=100, batch_size=64, lr=0.01, kl_method='UB', 
+                       num_samples_elbo=1, num_samples_kl=10,
+                       X_test=None, y_test=None, eval_interval=10, result_path=None):
+        """
+        Trains the model while periodically evaluating on test data and saving results.
+        """
+        optimizer = optim.Adam(self.get_trainable_parameters(), lr=lr)
+        dataset = TensorDataset(self.X_full, self.y_full)
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
+        can_evaluate = X_test is not None and y_test is not None and result_path is not None
+        if can_evaluate:
+            result_path = Path(result_path)
+            if not result_path.exists():
+                result_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(result_path, 'w') as f:
+                    f.write("epoch,rmse,elbo\n")
 
+        print(f"🚀 Starting training with evaluation (method: {kl_method})...")
+        final_elbo = 0.0
 
+        for epoch in range(epochs):
+            for X_batch, y_batch in dataloader:
+                optimizer.zero_grad()
+                elbo = self._calculate_elbo(X_batch, y_batch, kl_method, num_samples_elbo, num_samples_kl)
+                loss = -elbo
+                
+                if not (torch.isnan(loss) or torch.isinf(loss)):
+                    loss.backward()
+                    optimizer.step()
+                
+                final_elbo = elbo.item()
+            
+            # Simplified progress printing
+            if (epoch + 1) % 10 == 0:
+                print(f"Epoch {epoch+1}/{epochs}, ELBO: {final_elbo:.2f}")
 
+            if can_evaluate and (epoch + 1) % eval_interval == 0:
+                with torch.no_grad():
+                    pred_mean, _, _ = self.predict(X_test)
+                    # Ensure tensors are on the same device for comparison
+                    y_test_device = y_test.to(pred_mean.device)
+                    rmse = torch.sqrt(torch.mean((y_test_device.view(-1) - pred_mean.view(-1))**2)).item()
+                
+                log_msg = f"Epoch {epoch+1}/{epochs}, ELBO: {final_elbo:.4f}, Test RMSE: {rmse:.4f}"
+                logging.info(log_msg)
+                print(log_msg) # Also print to console
+                
+                with open(result_path, 'a') as f:
+                    f.write(f"{epoch+1},{rmse},{final_elbo}\n")
 
-# if __name__ == '__main__':
-#     # --- 1. Generate and Standardize Data ---
-#     N = 200; M = 50
-#     X_train_orig = torch.linspace(-5, 5, N).unsqueeze(1)
-#     def f_true(x): return torch.sinc(x) * 10
-#     y_train_orig = f_true(X_train_orig).squeeze() + torch.randn(N) * 0.1
-#     outlier_indices = torch.randperm(N)[:N//10]
-#     y_train_orig[outlier_indices] += torch.randn(len(outlier_indices)) * 5
-
-#     x_mean, x_std = X_train_orig.mean(), X_train_orig.std()
-#     y_mean, y_std = y_train_orig.mean(), y_train_orig.std()
-#     X_train_std = (X_train_orig - x_mean) / x_std
-#     y_train_std = (y_train_orig - y_mean) / y_std
-
-#     # --- 2. Setup and Train Models ---
-#     initial_model = SparseTPRTMiniBatch_Xu(X_train_std, y_train_std, M=M)
-
-#     # Train UB model
-#     model_ub = copy.deepcopy(initial_model)
-#     elbo_history_ub = model_ub.fit(epochs=3000, lr=0.01, kl_method='UB', batch_size=1024)
-
-#     # Train MC model
-#     model_mc = copy.deepcopy(initial_model)
-#     elbo_history_mc = model_mc.fit(epochs=3000, lr=0.01, kl_method='MC', batch_size=1024, num_samples_kl=10)
-
-#     # --- 3. Generate and Standardize Test Data ---
-#     X_test_orig = torch.linspace(-6, 6, 300).unsqueeze(1)
-#     X_test_std = (X_test_orig - x_mean) / x_std
-    
-#     # --- 4. Get and Un-standardize Predictions ---
-#     mu_ub_std, var_ub_std, _ = model_ub.predict(X_test_std)
-#     mu_ub = mu_ub_std.squeeze() * y_std + y_mean
-#     std_ub = torch.sqrt(var_ub_std.squeeze()) * y_std
-    
-#     mu_mc_std, var_mc_std, _ = model_mc.predict(X_test_std)
-#     mu_mc = mu_mc_std.squeeze() * y_std + y_mean
-#     std_mc = torch.sqrt(var_mc_std.squeeze()) * y_std
-
-#     Z_ub_unstd = model_ub.Z.detach() * x_std + x_mean
-
-#     # --- 5. Plotting on Original Scale ---
-#     plt.figure(figsize=(14, 8))
-#     plt.title("SVTP Comparison with Standardized Interface", fontsize=16)
-    
-#     # Plot UB results
-#     plt.plot(X_test_orig, mu_ub, color='blue', label="SVTP-UB Mean")
-#     plt.fill_between(X_test_orig.squeeze(), mu_ub - 1.96*std_ub, mu_ub + 1.96*std_ub, color='blue', alpha=0.1, label="SVTP-UB 95% Interval")
-    
-#     # Plot MC results
-#     plt.plot(X_test_orig, mu_mc, color='red', linestyle='--', label="SVTP-MC Mean")
-#     plt.fill_between(X_test_orig.squeeze(), mu_mc - 1.96*std_mc, mu_mc + 1.96*std_mc, color='red', alpha=0.1, label="SVTP-MC 95% Interval")
-    
-#     # Plot other elements
-#     plt.plot(X_test_orig, f_true(X_test_orig), 'k', linestyle=':', label="True Function")
-#     plt.scatter(Z_ub_unstd, torch.full_like(Z_ub_unstd, -6), marker='|', color='black', label="Inducing Points")
-    
-#     non_outliers = torch.ones(N, dtype=torch.bool); non_outliers[outlier_indices] = False
-#     plt.scatter(X_train_orig[non_outliers], y_train_orig[non_outliers], marker='o', facecolors='none', edgecolors='gray', label="Training Data")
-#     plt.scatter(X_train_orig[outlier_indices], y_train_orig[outlier_indices], marker='x', color='purple', label="Outliers")
-    
-#     plt.xlabel("x"); plt.ylabel("y"); plt.ylim(-7, 12); plt.legend(); plt.grid(True, linestyle='--', alpha=0.6)
-    
-#     # --- 6. Plot ELBO History Comparison ---
-#     plt.figure(figsize=(12, 6))
-#     plt.title('ELBO Convergence Comparison', fontsize=16)
-    
-#     # UB ELBO
-#     elbo_series_ub = pd.Series(elbo_history_ub)
-#     elbo_moving_avg_ub = elbo_series_ub.rolling(window=len(elbo_history_ub) // 100).mean()
-#     plt.plot(elbo_history_ub, color='blue', alpha=0.2)
-#     plt.plot(elbo_moving_avg_ub, color='blue', label='SVTP-UB (Moving Avg)')
-
-#     # MC ELBO
-#     elbo_series_mc = pd.Series(elbo_history_mc)
-#     elbo_moving_avg_mc = elbo_series_mc.rolling(window=len(elbo_history_mc) // 100).mean()
-#     plt.plot(elbo_history_mc, color='red', alpha=0.2)
-#     plt.plot(elbo_moving_avg_mc, color='red', label='SVTP-MC (Moving Avg)')
-    
-#     plt.xlabel('Iterations (Batches)', fontsize=12)
-#     plt.ylabel('Stochastic ELBO', fontsize=12)
-#     plt.grid(True); plt.legend(); plt.tight_layout()
-#     plt.show()
+        # Perform final evaluation if the last epoch was not an eval interval
+        if can_evaluate and epochs > 0 and epochs % eval_interval != 0:
+             with torch.no_grad():
+                pred_mean, _, _ = self.predict(X_test)
+                y_test_device = y_test.to(pred_mean.device)
+                rmse = torch.sqrt(torch.mean((y_test_device.view(-1) - pred_mean.view(-1))**2)).item()
+                print(f"Final Test RMSE: {rmse:.4f}")
+             with open(result_path, 'a') as f:
+                f.write(f"{epochs},{rmse},{final_elbo}\n")
+        
+        print(f"✓ Training and evaluation complete for method: {kl_method}")

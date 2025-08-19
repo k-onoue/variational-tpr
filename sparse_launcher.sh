@@ -6,7 +6,7 @@ BASE_SAVE_DIR="results/sparse_${TIMESTAMP}"
 
 # --- 評価するモデルのリスト ---
 MODELS_TO_EVALUATE=("TPRT-SCAVI" "SVTP-UB" "SVTP-MC")
-# MODELS_TO_EVALUATE=("TPRT-SCAVI")
+MODELS_TO_EVALUATE=("TPRT-SCAVI")
 
 # --- データセットとスプリットの総数を定義 ---
 NUM_DATASETS=5
