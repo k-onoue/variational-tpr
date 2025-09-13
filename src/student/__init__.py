@@ -1,4 +1,5 @@
-from .ours import SparseTPR 
+from .tpr import TPR, SparseTPR
+from .xu import XuTPR 
 
 from .constants import EPSILON, JITTER
 from .kernels import rbf_kernel, matern52_kernel
@@ -13,13 +14,15 @@ from .utils import (
     gaussian_gamma_standard_to_natural_precision_param,
     gaussian_gamma_natural_to_standard_covariance_param,
     gaussian_gamma_natural_to_standard_precision_param,
+    sample_mvt,
+    log_prob_mvt,
+    kl_mvt_empirical
 )
 
 __all__ = [
-    "TPC",
-    "SparseTPC",
-    "GPCP",
-    "SparseGPCP"
+    "TPR",
+    "SparseTPR",
+    "XuTPR"
 ] + [
     "EPSILON",
     "JITTER"
@@ -37,4 +40,7 @@ __all__ = [
     "gaussian_gamma_standard_to_natural_precision_param",
     "gaussian_gamma_natural_to_standard_covariance_param",
     "gaussian_gamma_natural_to_standard_precision_param",
+    "sample_mvt",
+    "log_prob_mvt",
+    "kl_mvt_empirical"
 ]

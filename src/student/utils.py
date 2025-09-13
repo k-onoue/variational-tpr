@@ -1,11 +1,13 @@
 import torch
+from linear_operator.operators import to_linear_operator
+from torch.distributions import Gamma
+
+from .constants import EPSILON
 
 # --- Original Functions (Now with added robustness) ---
 
 torch.set_default_dtype(torch.float64)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-EPSILON = 1e-12
 
 
 def kl_gamma(alpha1, beta1, alpha2, beta2):
@@ -196,3 +198,99 @@ def gaussian_gamma_natural_to_standard_precision_param(eta1, eta2, eta3, eta4):
     # beta = (-eta4 - 0.5 * torch.dot(m, P @ m)).squeeze().clamp(min=EPSILON)
     beta = (-eta4 - 0.5 * m.T @ P @ m).squeeze().clamp(min=EPSILON)
     return m, P, alpha, beta
+
+
+
+
+def sample_mvt(mu, scale_tril, dof, num_samples=1):
+    """
+    Draws samples from a multivariate Student-t distribution using the reparameterization trick.
+    x = mu + L * w / sqrt(g), where w ~ N(0,I) and g ~ Gamma(dof/2, dof/2).
+
+    Args:
+        mu (torch.Tensor): Mean vector of shape (D, 1) or (D,).
+        scale_tril (torch.Tensor): Cholesky factor (L) of the scale matrix, shape (D, D).
+        dof (torch.Tensor): Scalar degrees of freedom.
+        num_samples (int): The number of samples to draw.
+
+    Returns:
+        torch.Tensor: Samples of shape (D, num_samples).
+    """
+    D = mu.shape[0]
+    mu = mu.view(D, 1) # Ensure mu is a column vector for broadcasting
+    
+    # Sample from standard Normal and Gamma distributions
+    w = torch.randn(D, num_samples, device=mu.device, dtype=mu.dtype)
+    gamma_dist = Gamma(dof / 2.0, dof / 2.0)
+    g = gamma_dist.sample((num_samples,)).view(1, num_samples)
+    
+    # Combine to get samples using the reparameterization trick
+    samples = mu + scale_tril @ (w / torch.sqrt(g).clamp(min=EPSILON))
+    return samples
+
+
+def log_prob_mvt(x, mu, scale_tril, dof):
+    """
+    Computes the log probability density of a multivariate Student-t distribution.
+    Uses linear_operator for numerically stable log-determinant and solve operations.
+    
+    Args:
+        x (torch.Tensor): Samples, shape (D, K).
+        mu (torch.Tensor): Mean vector, shape (D, 1) or (D,).
+        scale_tril (torch.Tensor): Cholesky factor of the scale matrix, shape (D, D).
+        dof (torch.Tensor): Scalar degrees of freedom.
+        
+    Returns:
+        torch.Tensor: Log probability for each sample, shape (K,).
+    """
+    D = mu.shape[0]
+    mu = mu.view(D, 1) # Ensure mu is a column vector for broadcasting
+    
+    # Use linear_operator for stable logdet and solve
+    S_op = to_linear_operator(scale_tril @ scale_tril.T)
+    log_det_S = S_op.logdet()
+    
+    delta = x - mu
+    # Efficiently computes Mahalanobis distance for all K samples
+    maha_dist_sq = (delta * S_op.solve(delta)).sum(0) # Shape: (K,)
+    
+    term1 = torch.lgamma((dof + D) / 2.0) - torch.lgamma(dof / 2.0)
+    term2 = -0.5 * D * (torch.log(dof) + torch.log(torch.tensor(torch.pi, device=x.device)))
+    term3 = -0.5 * log_det_S
+    term4 = -0.5 * (dof + D) * torch.log(1 + maha_dist_sq / dof)
+    
+    return term1 + term2 + term3 + term4
+
+
+def kl_mvt_empirical(mu_q, scale_tril_q, dof_q, mu_p, scale_tril_p, dof_p, num_samples=1000):
+    """
+    Computes a Monte Carlo estimate of the KL divergence KL(q || p) between two
+    multivariate Student-t distributions q and p.
+
+    KL(q||p) = E_q[log q(f) - log p(f)]
+
+    Args:
+        mu_q (torch.Tensor): Mean of distribution q. Shape (D, 1) or (D,).
+        scale_tril_q (torch.Tensor): Cholesky factor of q's scale matrix. Shape (D, D).
+        dof_q (torch.Tensor): Degrees of freedom of q.
+        mu_p (torch.Tensor): Mean of distribution p. Shape (D, 1) or (D,).
+        scale_tril_p (torch.Tensor): Cholesky factor of p's scale matrix. Shape (D, D).
+        dof_p (torch.Tensor): Degrees of freedom of p.
+        num_samples (int): The number of samples for the Monte Carlo estimate.
+
+    Returns:
+        torch.Tensor: A scalar tensor representing the estimated KL divergence.
+    """
+    # 1. Draw samples from the first distribution q(f)
+    f_samples = sample_mvt(mu_q, scale_tril_q, dof_q, num_samples) # Shape (D, K)
+    
+    # 2. Calculate log q(f) for the samples
+    log_q_f = log_prob_mvt(f_samples, mu_q, scale_tril_q, dof_q) # Shape (K,)
+    
+    # 3. Calculate log p(f) for the samples
+    log_p_f = log_prob_mvt(f_samples, mu_p, scale_tril_p, dof_p) # Shape (K,)
+    
+    # 4. The KL divergence is the expectation of the difference, estimated by the mean
+    kl_div = (log_q_f - log_p_f).mean()
+    
+    return kl_div
