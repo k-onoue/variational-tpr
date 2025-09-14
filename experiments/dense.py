@@ -28,7 +28,8 @@ def run_experiment(config):
     """
     Runs experiments based on the provided configuration dictionary and returns detailed epoch-wise results.
     """
-    all_results = []
+    # This list will hold a DataFrame for each run (split)
+    all_results_dfs = []
     
     base_path = config['data']['base_path']
     dataset_names = config['data']['dataset_names']
@@ -59,17 +60,42 @@ def run_experiment(config):
                 
                 history = model.fit(X_test=X_test_t, y_test=y_test_t, **fit_params)
 
-                for epoch, metrics, fit_time in zip(history['eval_epochs'], history['eval_metrics'], history['fit_times']):
-                    all_results.append({
-                        'model': model_name,
-                        'dataset': dataset_name,
-                        'split': i,
-                        'epoch': epoch,
-                        'rmse': metrics['rmse'],
-                        'time': fit_time
-                    })
+                # ▼▼▼ MODIFICATION START: Replaced the loop with DataFrame merging ▼▼▼
+                # This ensures all-epoch data like loss, elbo, and log_prior are recorded.
+
+                # 1. Create a base DataFrame with data recorded at every epoch.
+                # It is assumed that the model's `fit` method returns 'loss', 'elbo', 'log_prior' for every epoch.
+                num_epochs_trained = len(history['loss'])
+                base_run_data = {
+                    'model': model_name,
+                    'dataset': dataset_name,
+                    'split': i,
+                    'epoch': np.arange(1, num_epochs_trained + 1),
+                    'loss': history.get('loss', [np.nan] * num_epochs_trained),
+                    'elbo': history.get('elbo', [np.nan] * num_epochs_trained),
+                    'log_prior': history.get('log_prior', [np.nan] * num_epochs_trained)
+                }
+                run_df = pd.DataFrame(base_run_data)
+                
+                # 2. Create a separate DataFrame for evaluation metrics, which are recorded periodically.
+                if history.get('eval_epochs') and len(history['eval_epochs']) > 0:
+                    # The `metrics` in history is a list of dictionaries, e.g., [{'rmse': 0.5}, {'rmse': 0.4}]
+                    eval_data_list = history['eval_metrics']
+                    
+                    if isinstance(eval_data_list, list) and all(isinstance(item, dict) for item in eval_data_list):
+                        eval_df = pd.DataFrame(eval_data_list) # This will create columns like 'rmse'
+                        eval_df['epoch'] = history['eval_epochs']
+                        eval_df['time'] = history['fit_times']
+                        
+                        # 3. Merge the evaluation data into the main DataFrame for this run.
+                        #    Metrics for epochs without evaluation will be NaN.
+                        run_df = pd.merge(run_df, eval_df, on='epoch', how='left')
+                
+                all_results_dfs.append(run_df)
+                # ▲▲▲ MODIFICATION END ▲▲▲
         
-    return pd.DataFrame(all_results)
+    # Concatenate all results into a single DataFrame at the end
+    return pd.concat(all_results_dfs, ignore_index=True) if all_results_dfs else pd.DataFrame()
 
 # --- Results Saving Function ---
 def save_results(detailed_df, summary_df, config, output_dir):
