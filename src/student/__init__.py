@@ -1,5 +1,6 @@
 from .tpr import TPR, SparseTPR
-from .xu import XuTPR 
+from .xu import XuTPR, XuSparseTPR 
+from .tang import TangTPR
 
 from .constants import EPSILON, JITTER
 from .kernels import rbf_kernel, matern52_kernel
@@ -22,7 +23,9 @@ from .utils import (
 __all__ = [
     "TPR",
     "SparseTPR",
-    "XuTPR"
+    "XuTPR",
+    "XuSparseTPR",
+    "TangTPR"
 ] + [
     "EPSILON",
     "JITTER"
