@@ -198,7 +198,7 @@ class TangTPR(nn.Module):
         
         # --- History Recording Initialization ---
         history = {
-            'nll': [], 
+            'elbo': [], 
             'log_prior': [], 
             'loss': [], 
             'hyperparams': [],
@@ -245,7 +245,7 @@ class TangTPR(nn.Module):
                 fit_end_time = time.time()
 
                 # --- Store history for this epoch ---
-                history['nll'].append(approx_nll.item())
+                history['elbo'].append(approx_nll.item())
                 history['log_prior'].append(log_prior.item())
                 history['loss'].append(loss_hyper.item())
                 history['hyperparams'].append({k: v.detach().cpu().numpy() for k, v in self._get_hyperparams().items()})

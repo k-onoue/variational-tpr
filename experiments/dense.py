@@ -7,7 +7,7 @@ import torch
 import json
 import copy
 
-from student import TPR, XuTPR
+from student import TPR, XuTPR, TangTPR
 
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,7 +28,6 @@ def run_experiment(config):
     """
     Runs experiments based on the provided configuration dictionary and returns detailed epoch-wise results.
     """
-    # This list will hold a DataFrame for each run (split)
     all_results_dfs = []
     
     base_path = config['data']['base_path']
@@ -60,11 +59,6 @@ def run_experiment(config):
                 
                 history = model.fit(X_test=X_test_t, y_test=y_test_t, **fit_params)
 
-                # ▼▼▼ MODIFICATION START: Replaced the loop with DataFrame merging ▼▼▼
-                # This ensures all-epoch data like loss, elbo, and log_prior are recorded.
-
-                # 1. Create a base DataFrame with data recorded at every epoch.
-                # It is assumed that the model's `fit` method returns 'loss', 'elbo', 'log_prior' for every epoch.
                 num_epochs_trained = len(history['loss'])
                 base_run_data = {
                     'model': model_name,
@@ -77,24 +71,22 @@ def run_experiment(config):
                 }
                 run_df = pd.DataFrame(base_run_data)
                 
-                # 2. Create a separate DataFrame for evaluation metrics, which are recorded periodically.
                 if history.get('eval_epochs') and len(history['eval_epochs']) > 0:
-                    # The `metrics` in history is a list of dictionaries, e.g., [{'rmse': 0.5}, {'rmse': 0.4}]
                     eval_data_list = history['eval_metrics']
                     
                     if isinstance(eval_data_list, list) and all(isinstance(item, dict) for item in eval_data_list):
-                        eval_df = pd.DataFrame(eval_data_list) # This will create columns like 'rmse'
+                        eval_df = pd.DataFrame(eval_data_list)
                         eval_df['epoch'] = history['eval_epochs']
-                        eval_df['time'] = history['fit_times']
                         
-                        # 3. Merge the evaluation data into the main DataFrame for this run.
-                        #    Metrics for epochs without evaluation will be NaN.
+                        # Ensure 'fit_times' aligns with the number of recorded epochs
+                        fit_times = history.get('fit_times', [])
+                        if len(fit_times) == num_epochs_trained:
+                            run_df['time'] = fit_times
+                        
                         run_df = pd.merge(run_df, eval_df, on='epoch', how='left')
                 
                 all_results_dfs.append(run_df)
-                # ▲▲▲ MODIFICATION END ▲▲▲
         
-    # Concatenate all results into a single DataFrame at the end
     return pd.concat(all_results_dfs, ignore_index=True) if all_results_dfs else pd.DataFrame()
 
 # --- Results Saving Function ---
@@ -102,7 +94,6 @@ def save_results(detailed_df, summary_df, config, output_dir):
     """Saves the experiment results and configuration to the specified directory."""
     os.makedirs(output_dir, exist_ok=True)
     
-    # --- Save DataFrame results ---
     detailed_csv_path = os.path.join(output_dir, 'results_detailed.csv')
     summary_csv_path = os.path.join(output_dir, 'results_summary.csv')
     
@@ -112,10 +103,7 @@ def save_results(detailed_df, summary_df, config, output_dir):
     logging.info(f"\nDetailed epoch-wise results saved to {detailed_csv_path}")
     logging.info(f"Summary of final results saved to {summary_csv_path}")
     
-    # --- Save configuration file ---
-    # Create a serializable copy of the config dictionary
     config_to_save = copy.deepcopy(config)
-    # Convert non-serializable class objects to their string names
     for model_name, model_config in config_to_save['models'].items():
         if 'class' in model_config:
             model_config['class'] = model_config['class'].__name__
@@ -129,12 +117,8 @@ def save_results(detailed_df, summary_df, config, output_dir):
 
 # --- Main Execution Block ---
 if __name__ == '__main__':
-    # Set the default dtype for PyTorch to double (float64)
     torch.set_default_dtype(torch.float64)
 
-    # =============================================================================
-    # --- Centralized Experiment Parameter Management ---
-    # =============================================================================
     EXPERIMENT_CONFIG = {
         'data': {
             'base_path': './datasets/dataset_tang_2017/',
@@ -143,10 +127,6 @@ if __name__ == '__main__':
                 'Machine_CPU', 'Neal', 'Neal_XOutlier'
             ],
             'num_splits': 10,
-            # 'dataset_names': [
-            #     'Bike', 'Concrete',
-            # ],
-            # 'num_splits': 1
         },
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
         'models': {
@@ -171,7 +151,25 @@ if __name__ == '__main__':
                     'epochs': 100,
                     'eval_interval': 1,
                     'lr': 0.01,
-                    'num_samples': 100
+                    'num_samples': 1000
+                },
+                'hyper_settings': {
+                    'lengthscale': {'optim': 'MAP'},
+                    'outputscale': {'optim': 'FIX', 'init': 1.0 },
+                    'noisescale':  {'optim': 'MAP'},
+                    'dof_func':    {'optim': 'MAP'},
+                    'dof_lik':     {'optim': 'MAP'},
+                }
+            },
+            # ▼▼▼ MODIFICATION 2: Add TangTPR configuration ▼▼▼
+            'TangTPR': {
+                'class': TangTPR,
+                'fit_params': {
+                    'epochs': 100,
+                    'eval_interval': 1,
+                    'lr_hyper': 0.01, # Learning rate for hyperparameters
+                    'lr_f': 0.1,      # Learning rate for latent mode f_hat
+                    'f_steps': 10     # Inner optimization steps for f_hat
                 },
                 'hyper_settings': {
                     'lengthscale': {'optim': 'MAP'},
@@ -181,27 +179,26 @@ if __name__ == '__main__':
                     'dof_lik':     {'optim': 'MAP'},
                 }
             }
+            # ▲▲▲ END MODIFICATION 2 ▲▲▲
         }
     }
 
-    # --- Create Results Directory with Timestamp ---
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_directory = os.path.join('./results', timestamp)
     
-    # --- Run Experiment ---
     detailed_results_df = run_experiment(EXPERIMENT_CONFIG)
     
     # --- Aggregate Results ---
-    # Create a summary from the performance at the final epoch
-    final_epoch = EXPERIMENT_CONFIG['models']['TPR']['fit_params']['epochs']
-    final_epoch_results = detailed_results_df[detailed_results_df['epoch'] == final_epoch].copy()
+    # Find the maximum epoch number across all models to ensure we select the final results correctly
+    max_epoch = detailed_results_df['epoch'].max()
+    logging.info(f"Aggregating results at final epoch: {max_epoch}")
+    final_epoch_results = detailed_results_df[detailed_results_df['epoch'] == max_epoch].copy()
     
     summary_df = final_epoch_results.groupby(['model', 'dataset'])['rmse'].agg(['mean', 'std']).reset_index()
     summary_df.rename(columns={'mean': 'rmse_mean', 'std': 'rmse_std'}, inplace=True)
     
-    # --- Display and Save Results ---
     print("\n\n" + "="*60)
-    print(f"       SUMMARY OF FINAL RESULTS (RMSE at Epoch {final_epoch})")
+    print(f"       SUMMARY OF FINAL RESULTS (RMSE at Epoch {max_epoch})")
     print("="*60)
     pd.set_option('display.float_format', '{:.4f}'.format)
     print(summary_df)
