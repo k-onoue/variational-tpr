@@ -38,11 +38,12 @@ class TangTPR(nn.Module):
         dtype = self.X_train.dtype
 
         # --- Priors for Hyperparameters (for MAP estimation) ---
-        self.lengthscale_prior = GammaPrior(2.0, 1.0)
-        self.outputscale_prior = GammaPrior(2.0, 1.0)
+        self.lengthscale_prior = GammaPrior(3.0, 6.0)
+        self.outputscale_prior = GammaPrior(2.0, 0.15)
         self.dof_func_prior = LogNormalPrior(loc=1.0, scale=1.0)  # Prior for ν₁, degrees of freedom of the TP
         self.dof_lik_prior = LogNormalPrior(loc=1.0, scale=1.0)   # Prior for ν₂, degrees of freedom of the likelihood
-        self.noisescale_prior = LogNormalPrior(loc=-2.0, scale=1.0) # Prior for σ, centered around exp(-2) ~ 0.13
+        self.noisescale_prior = LogNormalPrior(loc=-4.0, scale=1.0)
+
 
         # --- Initialize Hyperparameters ---
         hyperparameters = self._initialize_hyperparameters(hyper_settings)

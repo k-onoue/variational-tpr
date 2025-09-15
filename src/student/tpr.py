@@ -49,7 +49,7 @@ class TPR(nn.Module):
         self.lengthscale_prior = GammaPrior(3.0, 6.0)
         self.outputscale_prior = GammaPrior(2.0, 0.15)
         self.nu_prior = LogNormalPrior(loc=1.0, scale=1.0)
-        self.noise_prior = LogNormalPrior(loc=0.1, scale=0.5)
+        self.noise_prior = LogNormalPrior(loc=-4.0, scale=1.0)
 
         # Initialize hyperparameters
         hyperparameters = self._initialize_hyperparameters(hyper_settings)
@@ -362,7 +362,7 @@ class SparseTPR(nn.Module):
         self.lengthscale_prior = GammaPrior(3.0, 6.0)
         self.outputscale_prior = GammaPrior(2.0, 0.15)
         self.nu_prior = LogNormalPrior(loc=1.0, scale=1.0)
-        self.noise_prior = LogNormalPrior(loc=0.1, scale=0.5)
+        self.noise_prior = LogNormalPrior(loc=-4.0, scale=1.0)
 
         # Initialize hyperparameters
         hyperparameters = self._initialize_hyperparameters(hyper_settings)

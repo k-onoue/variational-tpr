@@ -123,8 +123,8 @@ if __name__ == '__main__':
         'data': {
             'base_path': './datasets/dataset_combined/',
             'dataset_names': [
-                'Bike', 'Concrete', 'Concrete_Outliers', 'Elevators',
-                'Energy', 'Kin8nm', 'Kin8nm_Outliers', 'Protein'
+                'Boston', 'Diabetes', 'ELE', 'MPG',
+                'Machine_CPU', 'Neal', 'Neal_XOutlier', 'Yacht'
             ],
             'num_splits': 10,
         },

@@ -294,3 +294,65 @@ def kl_mvt_empirical(mu_q, scale_tril_q, dof_q, mu_p, scale_tril_p, dof_p, num_s
     kl_div = (log_q_f - log_p_f).mean()
     
     return kl_div
+
+
+def gaussian_standard_to_natural_covariance_param(mu, sigma):
+    """
+    Converts standard covariance parameters (μ, Σ) to canonical natural parameters (η₁, η₂).
+
+    Args:
+        mu (torch.Tensor): Mean vector (μ) of shape (D,).
+        sigma (torch.Tensor): Covariance matrix (Σ) of shape (D, D).
+
+    Returns:
+        tuple[torch.Tensor]: A tuple containing the natural parameters:
+                             - eta1 (η₁ = Σ⁻¹μ)
+                             - eta2 (η₂ = -½Σ⁻¹)
+    """
+    D = mu.shape[0]
+    device = mu.device
+    dtype = mu.dtype
+    
+    # η₁ = Σ⁻¹μ
+    # Solves the linear system Σ * x = μ for x.
+    eta1 = torch.linalg.solve(sigma, mu)
+    
+    # η₂ = -½ * Σ⁻¹
+    # To find Σ⁻¹ without direct inversion, solve Σ * X = I for X.
+    identity = torch.eye(D, device=device, dtype=dtype)
+    sigma_inv = torch.linalg.solve(sigma, identity)
+    eta2 = -0.5 * sigma_inv
+    
+    return eta1, eta2
+
+
+def gaussian_natural_to_standard_covariance_param(eta1, eta2):
+    """
+    Converts canonical natural parameters (η₁, η₂) to standard covariance parameters (μ, Σ).
+
+    Args:
+        eta1 (torch.Tensor): The first natural parameter (η₁ = Σ⁻¹μ).
+        eta2 (torch.Tensor): The second natural parameter (η₂ = -½Σ⁻¹).
+
+    Returns:
+        tuple[torch.Tensor]: A tuple containing the standard covariance parameters:
+                             - mu (μ)
+                             - sigma (Σ)
+    """
+    D = eta1.shape[0]
+    device = eta1.device
+    dtype = eta1.dtype
+
+    # From η₂ = -½Σ⁻¹, the precision matrix is P = Σ⁻¹ = -2η₂
+    precision_matrix = -2.0 * eta2
+    
+    # 1. Calculate sigma (Σ) = P⁻¹
+    # To find the inverse of P, we solve the system P * X = I for X.
+    identity = torch.eye(D, device=device, dtype=dtype)
+    sigma = torch.linalg.solve(precision_matrix, identity)
+    
+    # 2. Calculate mu (μ) = Ση₁ = P⁻¹η₁
+    # Solves the system P * x = η₁ for x.
+    mu = torch.linalg.solve(precision_matrix, eta1)
+
+    return mu, sigma
