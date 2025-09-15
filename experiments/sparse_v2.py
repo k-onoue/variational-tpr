@@ -166,7 +166,7 @@ if __name__ == '__main__':
             ],
             'num_splits': 10,
         },
-        'device': 'cuda:1' if torch.cuda.is_available() else 'cpu',
+        'device': 'cuda:0' if torch.cuda.is_available() else 'cpu',
         'models': {
             'SparseGPR': {
                 'class': SparseGPR,
