@@ -242,7 +242,7 @@ class SparseGPR(nn.Module):
 
         self.lengthscale_prior = GammaPrior(3.0, 6.0)
         self.outputscale_prior = GammaPrior(2.0, 0.15)
-        self.noise_prior = LogNormalPrior(loc=-4.0, scale=1.0)
+        self.noisescale_prior = LogNormalPrior(loc=-4.0, scale=1.0)
 
         # Initialize hyperparameters
         hyperparameters = self._initialize_hyperparameters(hyper_settings)
