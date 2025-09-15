@@ -7,7 +7,7 @@ import torch
 import json
 import copy
 
-from student import TPR, XuTPR, TangTPR
+from student import TPR, XuTPR, TangTPR, GPR
 
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -130,6 +130,19 @@ if __name__ == '__main__':
         },
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
         'models': {
+            'GPR': {
+                'class': GPR,
+                'fit_params': {
+                    'epochs': 100,
+                    'eval_interval': 1,
+                    'lr': 0.01
+                },
+                'hyper_settings': {
+                    "lengthscale": {"optim": "MAP"},
+                    "outputscale": {"optim": "MAP"},
+                    "noisescale":  {"optim": "MAP"},
+                }
+            },
             'TPR': {
                 'class': TPR,
                 'fit_params': {
