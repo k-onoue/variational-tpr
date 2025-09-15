@@ -102,7 +102,7 @@ class GPR(nn.Module):
     def _calculate_log_prior(self, params):
         log_prior = torch.tensor(0.0, device=self.device, dtype=self.dtype)
         if self.hyper_optim_mode['lengthscale'] == 'MAP':
-            log_prior += self.lengthscale_prior.log_prob(params['lengthscale'])
+            log_prior += self.lengthscale_prior.log_prob(params['lengthscale']).sum()
         if self.hyper_optim_mode['outputscale'] == 'MAP':
             log_prior += self.outputscale_prior.log_prob(params['outputscale'])
         if self.hyper_optim_mode['noisescale'] == 'MAP':
