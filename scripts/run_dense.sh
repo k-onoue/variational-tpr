@@ -5,12 +5,14 @@
 MODEL_NAMES=("GPR" "TPR" "XuTPR" "TangTPR")
 
 # Path to the Python script to be executed
-PYTHON_SCRIPT="experiments/dense_v3.py"
+PYTHON_SCRIPT="experiments/dense_v4.py"
 
 # List of datasets (should match the config in the Python script)
 DATASETS=(
     'Boston' 'Diabetes' 'ELE' 'MPG'
     'Machine_CPU' 'Neal' 'Neal_XOutlier' 'Yacht'
+    'Boston_Outliers' 'Diabetes_Outliers' 'ELE_Outliers' 'MPG_Outliers'
+    'Machine_CPU_Outliers' 'Neal_Outliers' 'Neal_YOutlier' 'Yacht_Outliers'
 )
 NUM_SPLITS=10
 NUM_DATASETS=${#DATASETS[@]}

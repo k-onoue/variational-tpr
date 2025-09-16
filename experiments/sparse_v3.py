@@ -145,22 +145,40 @@ if __name__ == "__main__":
         },
         "device": "cuda" if torch.cuda.is_available() else "cpu",
         "models": {
-            # "SparseGPR": {
-            #     "class": SparseGPR,
-            #     "init_params": {"num_inducing": 256, "inducing_init": "kmeans"},
-            #     "fit_params": {
-            #         "epochs": 1000,
-            #         "eval_interval": 1,
-            #         "batch_size": 1024,
-            #         "hyper_lr": 0.01,
-            #         "var_lr": 0.1,
-            #     },
-            #     "hyper_settings": {
-            #         "lengthscale": {"optim": "MLE"},
-            #         "outputscale": {"optim": "MLE"},
-            #         "noisescale":  {"optim": "MLE"},
-            #     },
-            # },
+            "SparseGPR": {
+                "class": SparseGPR,
+                "init_params": {"num_inducing": 256, "inducing_init": "kmeans"},
+                "fit_params": {
+                    "epochs": 1000,
+                    "eval_interval": 1,
+                    "batch_size": 1024,
+                    "hyper_lr": 0.01,
+                    "var_lr": 0.1,
+                },
+                "hyper_settings": {
+                    "lengthscale": {"optim": "MAP"},
+                    "outputscale": {"optim": "MAP"},
+                    "noisescale":  {"optim": "MAP"},
+                },
+            },
+            "XuSparseTPR": {
+                "class": XuSparseTPR,
+                "init_params": {"num_inducing": 256, "inducing_init": "kmeans"},
+                "fit_params": {
+                    "epochs": 1000,
+                    "eval_interval": 1,
+                    "batch_size": 1024,
+                    "lr": 0.01,
+                    "num_samples": 1000,
+                },
+                "hyper_settings": {
+                    "lengthscale": {"optim": "MAP"},
+                    "outputscale": {"optim": "FIX", "init": 1.0},
+                    "noisescale":  {"optim": "MAP"},
+                    "dof_func":    {"optim": "MAP"},
+                    "dof_lik":     {"optim": "MAP"},
+                },
+            },
             "SparseTPR": {
                 "class": SparseTPR,
                 "init_params": {"num_inducing": 256, "inducing_init": "kmeans"},
@@ -172,31 +190,13 @@ if __name__ == "__main__":
                     "var_lr": 0.1,
                 },
                 "hyper_settings": {
-                    "lengthscale": {"optim": "MLE"},
+                    "lengthscale": {"optim": "MAP"},
                     "outputscale": {"optim": "FIX", "init": 1.0},
-                    "noisescale":  {"optim": "MLE"},
-                    "dof_func":    {"optim": "MLE"},
-                    "dof_lik":     {"optim": "MLE"},
+                    "noisescale":  {"optim": "MAP"},
+                    "dof_func":    {"optim": "MAP"},
+                    "dof_lik":     {"optim": "MAP"},
                 },
             },
-            # "XuSparseTPR": {
-            #     "class": XuSparseTPR,
-            #     "init_params": {"num_inducing": 256, "inducing_init": "kmeans"},
-            #     "fit_params": {
-            #         "epochs": 1000,
-            #         "eval_interval": 1,
-            #         "batch_size": 1024,
-            #         "lr": 0.01,
-            #         "num_samples": 1000,
-            #     },
-            #     "hyper_settings": {
-            #         "lengthscale": {"optim": "MLE"},
-            #         "outputscale": {"optim": "FIX", "init": 1.0},
-            #         "noisescale":  {"optim": "MLE"},
-            #         "dof_func":    {"optim": "MLE"},
-            #         "dof_lik":     {"optim": "MLE"},
-            #     },
-            # },
         },
     }
 

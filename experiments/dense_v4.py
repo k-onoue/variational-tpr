@@ -22,15 +22,10 @@ logging.basicConfig(
 def load_split_data(base_path, dataset_name, split_idx):
     """Loads data for a specific dataset and split with double precision."""
     split_path = os.path.join(base_path, dataset_name, f"split_{split_idx}")
-    # ダミーデータを生成（実際のファイル読み込みに置き換えてください）
     if not os.path.exists(split_path):
-        logging.warning(f"Data path not found: {split_path}. Generating dummy data.")
-        return (
-            np.random.rand(100, 10),
-            np.random.rand(100, 1),
-            np.random.rand(50, 10),
-            np.random.rand(50, 1),
-        )
+        logging.error(f"Data path not found: {split_path}. Exiting.")
+        # 実データがない場合はエラー終了する方が安全です
+        raise FileNotFoundError(f"Required data directory not found: {split_path}")
 
     X_train = pd.read_csv(
         os.path.join(split_path, "train_features.csv"), header=None
@@ -98,10 +93,14 @@ def run_single_experiment(model_name, dataset_name, split_idx, config, output_ba
             run_df["time"] = fit_times
         run_df = pd.merge(run_df, eval_df, on="epoch", how="left")
 
-    # --- Save individual result ---
-    output_dir = os.path.join(output_base_dir, model_name, dataset_name)
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"split_{split_idx}.csv")
+    # --- Save individual result (MODIFIED) ---
+    # Create a flat filename instead of nested directories
+    output_filename = f"{model_name}_{dataset_name}_split_{split_idx}.csv"
+    output_path = os.path.join(output_base_dir, output_filename)
+
+    # Ensure the base output directory exists
+    os.makedirs(output_base_dir, exist_ok=True)
+
     run_df.to_csv(output_path, index=False, float_format="%.6f")
     logging.info(f"Saved result to {output_path}")
 
