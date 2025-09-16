@@ -9,8 +9,10 @@ PYTHON_SCRIPT="experiments/sparse_v3.py" # Make sure this filename is correct
 
 # List of datasets (should match the config in the Python script)
 DATASETS=(
-    'Bike' 'Concrete' 'Concrete_Outliers' 'Elevators'
-    'Energy' 'Kin8nm' 'Kin8nm_Outliers' 'Protein'
+    'Bike' 'Concrete' 'Elevators'
+    'Energy' 'Kin8nm' 'Protein' 'Taxi'
+    'Bike_Outliers' 'Concrete_Outliers' 'Elevators_Outliers'
+    'Energy_Outliers' 'Kin8nm_Outliers' 'Protein_Outliers' 'Taxi_Outliers'
 )
 NUM_SPLITS=10
 NUM_DATASETS=${#DATASETS[@]}
