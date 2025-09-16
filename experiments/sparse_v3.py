@@ -135,27 +135,32 @@ if __name__ == "__main__":
     torch.set_default_dtype(torch.float64)
 
     EXPERIMENT_CONFIG = {
-        "data": {
-            "base_path": "./datasets/dataset_combined/",
+        'data': {
+            'base_path': './datasets/dataset_combined/',
+            'dataset_names': [
+                'Bike', 'Concrete', 'Concrete_Outliers', 'Elevators',
+                'Energy', 'Kin8nm', 'Kin8nm_Outliers', 'Protein'
+            ],
+            'num_splits': 10,
         },
         "device": "cuda" if torch.cuda.is_available() else "cpu",
         "models": {
-            "SparseGPR": {
-                "class": SparseGPR,
-                "init_params": {"num_inducing": 256, "inducing_init": "kmeans"},
-                "fit_params": {
-                    "epochs": 1000,
-                    "eval_interval": 1,
-                    "batch_size": 1024,
-                    "hyper_lr": 0.01,
-                    "var_lr": 0.1,
-                },
-                "hyper_settings": {
-                    "lengthscale": {"optim": "MLE"},
-                    "outputscale": {"optim": "MLE"},
-                    "noisescale":  {"optim": "MLE"},
-                },
-            },
+            # "SparseGPR": {
+            #     "class": SparseGPR,
+            #     "init_params": {"num_inducing": 256, "inducing_init": "kmeans"},
+            #     "fit_params": {
+            #         "epochs": 1000,
+            #         "eval_interval": 1,
+            #         "batch_size": 1024,
+            #         "hyper_lr": 0.01,
+            #         "var_lr": 0.1,
+            #     },
+            #     "hyper_settings": {
+            #         "lengthscale": {"optim": "MLE"},
+            #         "outputscale": {"optim": "MLE"},
+            #         "noisescale":  {"optim": "MLE"},
+            #     },
+            # },
             "SparseTPR": {
                 "class": SparseTPR,
                 "init_params": {"num_inducing": 256, "inducing_init": "kmeans"},
@@ -174,24 +179,24 @@ if __name__ == "__main__":
                     "dof_lik":     {"optim": "MLE"},
                 },
             },
-            "XuSparseTPR": {
-                "class": XuSparseTPR,
-                "init_params": {"num_inducing": 256, "inducing_init": "kmeans"},
-                "fit_params": {
-                    "epochs": 1000,
-                    "eval_interval": 1,
-                    "batch_size": 1024,
-                    "lr": 0.01,
-                    "num_samples": 1000,
-                },
-                "hyper_settings": {
-                    "lengthscale": {"optim": "MLE"},
-                    "outputscale": {"optim": "FIX", "init": 1.0},
-                    "noisescale":  {"optim": "MLE"},
-                    "dof_func":    {"optim": "MLE"},
-                    "dof_lik":     {"optim": "MLE"},
-                },
-            },
+            # "XuSparseTPR": {
+            #     "class": XuSparseTPR,
+            #     "init_params": {"num_inducing": 256, "inducing_init": "kmeans"},
+            #     "fit_params": {
+            #         "epochs": 1000,
+            #         "eval_interval": 1,
+            #         "batch_size": 1024,
+            #         "lr": 0.01,
+            #         "num_samples": 1000,
+            #     },
+            #     "hyper_settings": {
+            #         "lengthscale": {"optim": "MLE"},
+            #         "outputscale": {"optim": "FIX", "init": 1.0},
+            #         "noisescale":  {"optim": "MLE"},
+            #         "dof_func":    {"optim": "MLE"},
+            #         "dof_lik":     {"optim": "MLE"},
+            #     },
+            # },
         },
     }
 
