@@ -7,21 +7,18 @@ MODEL_NAMES=("SparseGPR" "SparseTPR" "XuSparseTPR")
 # Path to the Python script to be executed
 PYTHON_SCRIPT="experiments/sparse_v4.py" # Make sure this filename is correct
 
-# # List of datasets (should match the config in the Python script)
-# DATASETS=(
-#     'Bike' 'Concrete' 'Elevators'
-#     'Energy' 'Kin8nm' 'Protein' 'Taxi'
-#     'Bike_Outliers' 'Concrete_Outliers' 'Elevators_Outliers'
-#     'Energy_Outliers' 'Kin8nm_Outliers' 'Protein_Outliers' 'Taxi_Outliers'
-# )
+# List of datasets (should match the config in the Python script)
 DATASETS=(
-    'Bike'
+    'Bike' 'Concrete' 'Elevators'
+    'Energy' 'Kin8nm' 'Protein' 'Taxi'
+    'Bike_Outliers' 'Concrete_Outliers' 'Elevators_Outliers'
+    'Energy_Outliers' 'Kin8nm_Outliers' 'Protein_Outliers' 'Taxi_Outliers'
 )
-NUM_SPLITS=1
+NUM_SPLITS=10
 NUM_DATASETS=${#DATASETS[@]}
 TOTAL_JOBS=$((NUM_DATASETS * NUM_SPLITS - 1)) # Job array indices are 0-based, so subtract 1
 
-# --- Prepare Execution Directory ---
+# --- Prepare Execution Directory ---c
 # Generate a single timestamp for the entire run
 TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
 OUTPUT_DIR="results/${TIMESTAMP}"
