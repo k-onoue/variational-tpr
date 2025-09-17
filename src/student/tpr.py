@@ -589,30 +589,104 @@ class SparseTPR(nn.Module):
         loss.backward()
         optimizer.step()
 
+    # def fit(
+    #     self, 
+    #     epochs=100, batch_size=128, 
+    #     hyper_lr=0.01, var_lr=0.1,
+    #     X_test=None, y_test=None, eval_interval=10
+    # ):
+    #     parameters_to_optimize = [p for name, p in self.named_parameters() if self.hyper_optim_mode.get(name.replace("log_",""), "MLE") != 'FIX']
+        
+    
+    #     optimizer = optim.Adam(parameters_to_optimize, lr=hyper_lr) if parameters_to_optimize else None
+    #     dataset = TensorDataset(self.X_full, self.y_full)
+    #     generator = torch.Generator(device='cpu')
+    #     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, generator=generator)
+
+    #     history = {
+    #         'elbo': [], 'log_prior': [], 'loss': [],
+    #         'lengthscale': [], 'outputscale': [], 'dof_func': [], 'dof_lik': [], 'noisescale': [],
+    #         'eval_epochs': [], 'eval_metrics': [], 'fit_times': []
+    #     }
+    #     logging.info(f"Starting SVI optimization for {epochs} epochs...")
+
+    #     for epoch in range(epochs):
+    #         for X_batch, y_batch in dataloader:
+
+    #             fit_start_time = time.time()
+
+    #             params = self._get_hyperparams()
+    #             K_ZZ_base = to_linear_operator(self.kernel(self.Z, self.Z, params['lengthscale'], params['outputscale']))
+    #             K_ZZ = K_ZZ_base.add_jitter(JITTER)
+    #             K_XZ_batch = self.kernel(X_batch, self.Z, params['lengthscale'], params['outputscale'])
+
+    #             # E-Step (Local)
+    #             local_params = self._e_step_local(X_batch, y_batch, K_XZ_batch, K_ZZ, params)
+    #             self._e_step_global(X_batch, y_batch, K_XZ_batch, K_ZZ, local_params, params, var_lr)
+
+    #             # M-Step
+    #             elbo = self._calculate_elbo(X_batch, y_batch, K_XZ_batch, K_ZZ, local_params)
+    #             log_prior = self._calculate_log_prior(params)
+    #             loss = - (elbo + log_prior)
+                
+    #             self._m_step(optimizer, loss)
+
+    #             fit_end_time = time.time()
+
+    #             # --- Store history ---
+    #             params_final = self._get_hyperparams()
+    #             history['elbo'].append(elbo.item())
+    #             history['log_prior'].append(log_prior.item())
+    #             history['loss'].append(loss.item())
+    #             history['lengthscale'].append(params_final['lengthscale'].detach().cpu().numpy())
+    #             history['outputscale'].append(params_final['outputscale'].item())
+    #             history['noisescale'].append(params_final['noisescale'].item())
+    #             history['dof_func'].append(params_final['dof_func'].item())
+    #             history['dof_lik'].append(params_final['dof_lik'].item())
+    #             history['fit_times'].append(fit_end_time - fit_start_time)
+
+                
+    #         if (epoch + 1) % eval_interval == 0:
+    #             ls_str = ", ".join([f"{l:.3f}" for l in params_final['lengthscale']])
+    #             logging.info(f"Epoch {epoch+1:3d}/{epochs} | Fit Time: {fit_end_time - fit_start_time:.3f}s | ELBO: {elbo.item():8.2f} | l: [{ls_str}] | var: {params_final['outputscale']:.3f} | noise2: {params_final['noisescale']:3f} | dof_func: {params_final['dof_func']:.2f} | dof_lik: {params_final['dof_lik']:.2f}")
+
+    #         # --- Evaluation Step ---
+    #         if X_test is not None and y_test is not None and (epoch + 1) % eval_interval == 0:
+    #             metrics = self._evaluate(X_test, y_test)
+    #             history['eval_epochs'].append(epoch + 1)
+    #             history['eval_metrics'].append(metrics)
+    #             logging.info(
+    #                 f"Epoch {epoch+1:3d}/{epochs} | Test Metrics: "
+    #                 f"RMSE: {metrics['rmse']:.3f}"
+    #             )
+
+    #     logging.info("Optimization finished.")
+    #     return history
+
     def fit(
-        self, 
-        epochs=100, batch_size=128, 
+        self,
+        epochs=100, batch_size=128,
         hyper_lr=0.01, var_lr=0.1,
         X_test=None, y_test=None, eval_interval=10
     ):
         parameters_to_optimize = [p for name, p in self.named_parameters() if self.hyper_optim_mode.get(name.replace("log_",""), "MLE") != 'FIX']
-        
-    
+
+
         optimizer = optim.Adam(parameters_to_optimize, lr=hyper_lr) if parameters_to_optimize else None
         dataset = TensorDataset(self.X_full, self.y_full)
         generator = torch.Generator(device='cpu')
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, generator=generator)
 
-        history = {
-            'elbo': [], 'log_prior': [], 'loss': [],
-            'lengthscale': [], 'outputscale': [], 'dof_func': [], 'dof_lik': [], 'noisescale': [],
-            'eval_epochs': [], 'eval_metrics': [], 'fit_times': []
-        }
         logging.info(f"Starting SVI optimization for {epochs} epochs...")
 
         for epoch in range(epochs):
-            for X_batch, y_batch in dataloader:
+            epoch_loss = 0.0
+            epoch_elbo = 0.0
+            epoch_log_prior = 0.0
+            epoch_fit_time = 0.0
+            num_batches = 0
 
+            for X_batch, y_batch in dataloader:
                 fit_start_time = time.time()
 
                 params = self._get_hyperparams()
@@ -620,48 +694,48 @@ class SparseTPR(nn.Module):
                 K_ZZ = K_ZZ_base.add_jitter(JITTER)
                 K_XZ_batch = self.kernel(X_batch, self.Z, params['lengthscale'], params['outputscale'])
 
-                # E-Step (Local)
                 local_params = self._e_step_local(X_batch, y_batch, K_XZ_batch, K_ZZ, params)
                 self._e_step_global(X_batch, y_batch, K_XZ_batch, K_ZZ, local_params, params, var_lr)
 
-                # M-Step
                 elbo = self._calculate_elbo(X_batch, y_batch, K_XZ_batch, K_ZZ, local_params)
                 log_prior = self._calculate_log_prior(params)
                 loss = - (elbo + log_prior)
-                
+
                 self._m_step(optimizer, loss)
 
                 fit_end_time = time.time()
 
-                # --- Store history ---
-                params_final = self._get_hyperparams()
-                history['elbo'].append(elbo.item())
-                history['log_prior'].append(log_prior.item())
-                history['loss'].append(loss.item())
-                history['lengthscale'].append(params_final['lengthscale'].detach().cpu().numpy())
-                history['outputscale'].append(params_final['outputscale'].item())
-                history['noisescale'].append(params_final['noisescale'].item())
-                history['dof_func'].append(params_final['dof_func'].item())
-                history['dof_lik'].append(params_final['dof_lik'].item())
-                history['fit_times'].append(fit_end_time - fit_start_time)
+                epoch_loss += loss.item()
+                epoch_elbo += elbo.item()
+                epoch_log_prior += log_prior.item()
+                epoch_fit_time += (fit_end_time - fit_start_time)
+                num_batches += 1
 
-                
+            # --- Yield results for the completed epoch ---
+            epoch_results = {
+                'epoch': epoch + 1,
+                'loss': epoch_loss / num_batches,
+                'elbo': epoch_elbo / num_batches,
+                'log_prior': epoch_log_prior / num_batches,
+                'time': epoch_fit_time,
+            }
+
             if (epoch + 1) % eval_interval == 0:
+                params_final = self._get_hyperparams()
                 ls_str = ", ".join([f"{l:.3f}" for l in params_final['lengthscale']])
-                logging.info(f"Epoch {epoch+1:3d}/{epochs} | Fit Time: {fit_end_time - fit_start_time:.3f}s | ELBO: {elbo.item():8.2f} | l: [{ls_str}] | var: {params_final['outputscale']:.3f} | noise2: {params_final['noisescale']:3f} | dof_func: {params_final['dof_func']:.2f} | dof_lik: {params_final['dof_lik']:.2f}")
+                logging.info(f"Epoch {epoch+1:3d}/{epochs} | Fit Time: {epoch_fit_time:.3f}s | ELBO: {epoch_results['elbo']:8.2f} | l: [{ls_str}] | var: {params_final['outputscale']:.3f} | noise2: {params_final['noisescale']:3f} | dof_func: {params_final['dof_func']:.2f} | dof_lik: {params_final['dof_lik']:.2f}")
 
-            # --- Evaluation Step ---
             if X_test is not None and y_test is not None and (epoch + 1) % eval_interval == 0:
                 metrics = self._evaluate(X_test, y_test)
-                history['eval_epochs'].append(epoch + 1)
-                history['eval_metrics'].append(metrics)
+                epoch_results.update(metrics) # Add RMSE etc. to the results dict
                 logging.info(
                     f"Epoch {epoch+1:3d}/{epochs} | Test Metrics: "
                     f"RMSE: {metrics['rmse']:.3f}"
                 )
 
+            yield epoch_results
+
         logging.info("Optimization finished.")
-        return history
 
     def predict(self, X_test):
         """

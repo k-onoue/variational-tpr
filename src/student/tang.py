@@ -111,8 +111,8 @@ class TangTPR(nn.Module):
         return {
             "lengthscale": torch.exp(self.log_lengthscale).clamp(min=EPSILON),
             "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON),
-            "dof_func": torch.exp(self.log_dof_func).clamp(min=2.0 + EPSILON), # ν₁ >= 2
-            "dof_lik": torch.exp(self.log_dof_lik).clamp(min=2.0 + EPSILON),  # ν₂ >= 2
+            "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON), # ν₁ >= 2
+            "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON),  # ν₂ >= 2
             "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON),  # σ
         }
 

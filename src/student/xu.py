@@ -449,10 +449,70 @@ class XuSparseTPR(nn.Module):
         
         return scaled_log_lik - kl_div
 
+    # def fit(
+    #     self, 
+    #     epochs=200, batch_size=128, 
+    #     lr=0.01, num_samples=100, 
+    #     X_test=None, y_test=None, eval_interval=10
+    # ):
+    #     params_to_optimize = []
+    #     for name, p in self.named_parameters():
+    #         if name in ['m_u', 'chol_S_u', 'log_dof_q', 'Z']:
+    #             params_to_optimize.append(p)
+    #         elif self.hyper_optim_mode.get(name.replace("log_", ""), "MLE") != 'FIX':
+    #             params_to_optimize.append(p)
+
+    #     optimizer = optim.Adam(params_to_optimize, lr=lr) if params_to_optimize else None
+    #     dataset = TensorDataset(self.X_full, self.y_full)
+    #     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        
+    #     history = {
+    #         'elbo': [], 'log_prior': [], 'loss': [], 
+    #         'eval_epochs': [], 'eval_metrics': [], 'fit_times': []
+    #     }
+    #     logging.info(f"Starting SVI training for {epochs} epochs...")
+
+    #     for epoch in range(epochs):
+    #         epoch_loss = 0.0
+    #         for X_batch, y_batch in dataloader:
+
+    #             fit_start_time = time.time()
+
+    #             optimizer.zero_grad()
+                
+    #             elbo = self.calculate_elbo(X_batch, y_batch, num_samples=num_samples)
+    #             log_prior = self._calculate_log_prior(self._get_hyperparams())
+    #             loss = -(elbo + log_prior)
+                
+    #             loss.backward()
+    #             optimizer.step()
+    #             epoch_loss += loss.item()
+
+    #             fit_end_time = time.time()
+    #             history['fit_times'].append(fit_end_time - fit_start_time)
+
+    #             history['loss'].append(loss)
+    #             history['elbo'].append(elbo.item()) 
+    #             history['log_prior'].append(log_prior.item()) 
+            
+    #         if (epoch + 1) % eval_interval == 0:
+    #             logging.info(f"Epoch {epoch+1:4d}/{epochs} | Loss: {loss:.3f} | ELBO: {elbo.item():.3f}")
+
+    #         if X_test is not None and y_test is not None and (epoch + 1) % eval_interval == 0:
+    #             metrics = self._evaluate(X_test, y_test, num_samples=num_samples)
+    #             history['eval_epochs'].append(epoch + 1)
+    #             history['eval_metrics'].append(metrics)
+    #             logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f}")
+
+    #     logging.info("Training finished.")
+    #     return history
+
+    # student/XuSparseTPR.py (Modified)
+
     def fit(
-        self, 
-        epochs=200, batch_size=128, 
-        lr=0.01, num_samples=100, 
+        self,
+        epochs=200, batch_size=128,
+        lr=0.01, num_samples=100,
         X_test=None, y_test=None, eval_interval=10
     ):
         params_to_optimize = []
@@ -466,16 +526,16 @@ class XuSparseTPR(nn.Module):
         dataset = TensorDataset(self.X_full, self.y_full)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         
-        history = {
-            'elbo': [], 'log_prior': [], 'loss': [], 
-            'eval_epochs': [], 'eval_metrics': [], 'fit_times': []
-        }
         logging.info(f"Starting SVI training for {epochs} epochs...")
 
         for epoch in range(epochs):
             epoch_loss = 0.0
-            for X_batch, y_batch in dataloader:
+            epoch_elbo = 0.0
+            epoch_log_prior = 0.0
+            epoch_fit_time = 0.0
+            num_batches = 0
 
+            for X_batch, y_batch in dataloader:
                 fit_start_time = time.time()
 
                 optimizer.zero_grad()
@@ -486,26 +546,38 @@ class XuSparseTPR(nn.Module):
                 
                 loss.backward()
                 optimizer.step()
-                epoch_loss += loss.item()
 
                 fit_end_time = time.time()
-                history['fit_times'].append(fit_end_time - fit_start_time)
 
-                history['loss'].append(loss)
-                history['elbo'].append(elbo.item()) 
-                history['log_prior'].append(log_prior.item()) 
+                epoch_loss += loss.item()
+                epoch_elbo += elbo.item()
+                epoch_log_prior += log_prior.item()
+                epoch_fit_time += (fit_end_time - fit_start_time)
+                num_batches += 1
             
+            # --- Yield results for the completed epoch ---
+            avg_loss = epoch_loss / num_batches
+            avg_elbo = epoch_elbo / num_batches
+            
+            epoch_results = {
+                'epoch': epoch + 1,
+                'loss': avg_loss,
+                'elbo': avg_elbo,
+                'log_prior': epoch_log_prior / num_batches,
+                'time': epoch_fit_time,
+            }
+
             if (epoch + 1) % eval_interval == 0:
-                logging.info(f"Epoch {epoch+1:4d}/{epochs} | Loss: {loss:.3f} | ELBO: {elbo.item():.3f}")
+                logging.info(f"Epoch {epoch+1:4d}/{epochs} | Loss: {avg_loss:.3f} | ELBO: {avg_elbo:.3f}")
 
             if X_test is not None and y_test is not None and (epoch + 1) % eval_interval == 0:
                 metrics = self._evaluate(X_test, y_test, num_samples=num_samples)
-                history['eval_epochs'].append(epoch + 1)
-                history['eval_metrics'].append(metrics)
+                epoch_results.update(metrics) # Add RMSE to the results dict
                 logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f}")
 
+            yield epoch_results
+
         logging.info("Training finished.")
-        return history
 
     def predict(self, X_test, num_samples=1000):
         self.eval()

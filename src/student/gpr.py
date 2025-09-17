@@ -443,17 +443,18 @@ class SparseGPR(nn.Module):
         dataset = TensorDataset(self.X_full, self.y_full)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         
-        history = {
-            'elbo': [], 'log_prior': [], 'loss': [],
-            'lengthscale': [], 'outputscale': [], 'noisescale': [],
-            'eval_epochs': [], 'eval_metrics': [], 'fit_times': []
-        }
         logging.info(f"Starting SVI optimization for {epochs} epochs...")
 
         for epoch in range(epochs):
             self.train()
-            for X_batch, y_batch in dataloader:
+            
+            epoch_loss = 0.0
+            epoch_elbo = 0.0
+            epoch_log_prior = 0.0
+            epoch_fit_time = 0.0
+            num_batches = 0
 
+            for X_batch, y_batch in dataloader:
                 fit_start_time = time.time()
 
                 self._e_step(X_batch, y_batch, var_lr=var_lr)
@@ -464,27 +465,35 @@ class SparseGPR(nn.Module):
 
                 fit_end_time = time.time()
 
-                # --- Store history ---
-                params_final = self._get_hyperparams()
-                history['elbo'].append(elbo.item())
-                history['log_prior'].append(log_prior.item())
-                history['loss'].append(loss.item())
-                history['lengthscale'].append(params_final['lengthscale'].detach().cpu().numpy())
-                history['outputscale'].append(params_final['outputscale'].item())
-                history['noisescale'].append(params_final['noisescale'].item())
-                history['fit_times'].append(fit_end_time - fit_start_time)
+                epoch_loss += loss.item()
+                epoch_elbo += elbo.item()
+                epoch_log_prior += log_prior.item()
+                epoch_fit_time += (fit_end_time - fit_start_time)
+                num_batches += 1
+
+            # --- Yield results for the completed epoch ---
+            avg_loss = epoch_loss / num_batches
+            avg_elbo = epoch_elbo / num_batches
+
+            epoch_results = {
+                'epoch': epoch + 1,
+                'loss': avg_loss,
+                'elbo': avg_elbo,
+                'log_prior': epoch_log_prior / num_batches,
+                'time': epoch_fit_time,
+            }
 
             if (epoch + 1) % eval_interval == 0:
-                log_msg = f"Epoch {epoch+1:4d}/{epochs} | Last ELBO: {elbo.item():.3f}"
+                log_msg = f"Epoch {epoch+1:4d}/{epochs} | ELBO: {avg_elbo:.3f}"
                 if X_test is not None and y_test is not None:
                     metrics = self._evaluate(X_test, y_test)
-                    history['eval_epochs'].append(epoch + 1)
-                    history['eval_metrics'].append(metrics)
+                    epoch_results.update(metrics) # Add RMSE etc. to dict
                     log_msg += f" | Test RMSE: {metrics['rmse']:.4f}"
                 logging.info(log_msg)
+            
+            yield epoch_results
         
         logging.info("Optimization finished.")
-        return history
 
     def predict(self, X_test):
         self.eval()
