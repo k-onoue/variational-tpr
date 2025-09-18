@@ -456,8 +456,10 @@ class SparseTPR(nn.Module):
         return {
             "lengthscale": torch.exp(self.log_lengthscale).clamp(min=EPSILON),
             "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON),
-            "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON + 2.0),
-            "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON + 2.0),
+            # "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON + 2.0),
+            # "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON + 2.0),
+            "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON),
+            "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON),
             "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON),
         }
 
@@ -557,7 +559,7 @@ class SparseTPR(nn.Module):
             target_m_u = target_S_u @ m_u_data_term
             
             # Target for q(r) - using simplified update
-            target_alpha_r = params['dof_func'] / 2.0 + self.M / 2.0
+            target_alpha_r = params['dof_func'] / 2.0 + self.M / 2.0 + self.N / 2.0
             E_quad_u = torch.trace(K_ZZ_inv @ (target_S_u + target_m_u @ target_m_u.T))
             target_beta_r = params['dof_func'] / 2.0 + E_quad_u / 2.0
 

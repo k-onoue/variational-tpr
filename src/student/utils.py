@@ -176,8 +176,8 @@ def gaussian_gamma_natural_to_standard_covariance_param(eta1, eta2, eta3, eta4):
     parameters (covariance version).
     """
     identity = torch.eye(eta2.shape[0], device=eta2.device, dtype=eta2.dtype)
-    S_inv = -2 * eta2
-    S = torch.linalg.solve(S_inv, identity)
+    S_inv = -2 * to_linear_operator(eta2)
+    S = S_inv.solve(identity)
     m = S @ eta1
     alpha = (eta3 + 0.5).clamp(min=EPSILON)
     # --- FIX: Use torch.dot for the quadratic form to avoid the warning ---
@@ -191,8 +191,8 @@ def gaussian_gamma_natural_to_standard_precision_param(eta1, eta2, eta3, eta4):
     Converts natural parameters of a Normal-Gamma distribution back to standard
     parameters (precision version).
     """
-    P = -2 * eta2
-    m = torch.linalg.solve(P, eta1)
+    P = -2 * to_linear_operator(eta2)
+    m = P.solve(eta1)
     alpha = (eta3 + 0.5).clamp(min=EPSILON)
     # --- FIX: Use torch.dot for the quadratic form to avoid the warning ---
     # beta = (-eta4 - 0.5 * torch.dot(m, P @ m)).squeeze().clamp(min=EPSILON)
