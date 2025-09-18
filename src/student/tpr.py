@@ -306,7 +306,7 @@ class TPR(nn.Module):
             
             term1 = k_star_star - torch.sum(A * K_star_X, dim=1)
             term2 = torch.sum((A @ self.S_f) * A, dim=1)
-            scale_sq_star_f = (self.beta_r / self.alpha_r.clamp(min=EPSILON)) * (term1 + term2)
+            scale_sq_star_f = ((self.beta_r / self.alpha_r).clamp(min=EPSILON)) * (term1 + term2)
             
             dof_lik = params['dof_lik']
             noise_var = params['noisescale']
@@ -774,7 +774,7 @@ class SparseTPR(nn.Module):
             dof_star = 2 * self.alpha_r
             
             # Scale-squared
-            scale_sq_star = (self.beta_r / self.alpha_r.clamp(min=EPSILON)) * \
+            scale_sq_star = ((self.beta_r / self.alpha_r).clamp(min=EPSILON)) * \
                             (k_star_star - torch.sum(A_star * K_star_Z, dim=1) + torch.sum((A_star @ self.S_u) * A_star, dim=1))
             
             return {
