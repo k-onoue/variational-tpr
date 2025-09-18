@@ -441,8 +441,29 @@ if __name__ == '__main__':
             #         "noisescale":  {"optim": "MAP"}, 
             #     }
             # },
-            'SparseTPR': {
-                'class': SparseTPR,
+            # 'SparseTPR': {
+            #     'class': SparseTPR,
+            #     'init_params': { 
+            #         'num_inducing': 256, 
+            #         'inducing_init': 'kmeans' 
+            #     },
+            #     'fit_params': { 
+            #         'epochs': 1000, 
+            #         'eval_interval': 1, 
+            #         'batch_size': 1024, 
+            #         'hyper_lr': 0.01, 
+            #         'var_lr': 0.1 
+            #     },
+            #     'hyper_settings': { 
+            #         "lengthscale": {"optim": "MAP"}, 
+            #         "outputscale": {"optim": "FIX", "init": 1.0}, 
+            #         "noisescale":  {"optim": "MAP"}, 
+            #         "dof_func":    {"optim": "MAP"}, 
+            #         "dof_lik":     {"optim": "MAP"}, 
+            #     }
+            # },
+            'XuSparseTPR': {
+                'class': XuSparseTPR,
                 'init_params': { 
                     'num_inducing': 256, 
                     'inducing_init': 'kmeans' 
@@ -451,15 +472,15 @@ if __name__ == '__main__':
                     'epochs': 1000, 
                     'eval_interval': 1, 
                     'batch_size': 1024, 
-                    'hyper_lr': 0.01, 
-                    'var_lr': 0.1 
+                    'lr': 0.01, 
+                    'num_samples': 1000 
                 },
                 'hyper_settings': { 
-                    "lengthscale": {"optim": "MAP"}, 
-                    "outputscale": {"optim": "FIX", "init": 1.0}, 
-                    "noisescale":  {"optim": "MAP"}, 
-                    "dof_func":    {"optim": "MAP"}, 
-                    "dof_lik":     {"optim": "MAP"}, 
+                    'lengthscale': {'optim': 'MAP'}, 
+                    'outputscale': {'optim': 'FIX', 'init': 1.0 }, 
+                    'noisescale':  {'optim': 'MAP'}, 
+                    'dof_func':    {'optim': 'MAP'}, 
+                    'dof_lik':     {'optim': 'MAP'}, 
                 }
             },
         }
