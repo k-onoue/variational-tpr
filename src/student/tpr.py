@@ -519,7 +519,7 @@ class SparseTPR(nn.Module):
             mu_f_batch = A_batch @ self.m_u
             
             # 2. Var(f_i)
-            E_r_inv = self.beta_r / (self.alpha_r - 1.0).clamp(min=EPSILON)
+            E_r_inv = (self.beta_r / self.alpha_r - 1.0).clamp(min=EPSILON)
             K_tilde_diag = params['outputscale'] - torch.sum(A_batch * K_XZ_batch, dim=1)
             var_f_batch = E_r_inv * (K_tilde_diag + torch.sum((A_batch @ self.S_u) * A_batch, dim=1))
             
