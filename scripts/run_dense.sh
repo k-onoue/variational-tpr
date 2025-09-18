@@ -2,7 +2,8 @@
 
 # --- Configuration ---
 # List of models to run
-MODEL_NAMES=("GPR" "TPR" "XuTPR" "TangTPR")
+# MODEL_NAMES=("GPR" "TPR" "XuTPR" "TangTPR")
+MODEL_NAMES=("TPR" "XuTPR" "TangTPR")
 
 # Path to the Python script to be executed
 PYTHON_SCRIPT="experiments/dense_v4.py"
