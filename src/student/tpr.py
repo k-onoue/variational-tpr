@@ -127,8 +127,8 @@ class TPR(nn.Module):
         return {
             "lengthscale": torch.exp(self.log_lengthscale).clamp(min=EPSILON),
             "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON),
-            "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON + 2.0),
-            "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON + 2.0),
+            "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON),
+            "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON),
             "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON),
         }
 
@@ -456,8 +456,6 @@ class SparseTPR(nn.Module):
         return {
             "lengthscale": torch.exp(self.log_lengthscale).clamp(min=EPSILON),
             "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON),
-            # "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON + 2.0),
-            # "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON + 2.0),
             "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON),
             "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON),
             "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON),
@@ -530,9 +528,11 @@ class SparseTPR(nn.Module):
 
             # --- Update local parameters ---
             alpha_lambda_batch = params['dof_lik'] / 2.0 + 0.5
+            alpha_lambda_batch = alpha_lambda_batch.clamp(min=EPSILON)
             beta_lambda_batch = params['dof_lik'] / 2.0 + 0.5 * E_sq_err / params['noisescale']
+            beta_lambda_batch = beta_lambda_batch.clamp(min=EPSILON)
 
-            E_lambda_batch = alpha_lambda_batch / beta_lambda_batch.clamp(min=EPSILON)
+            E_lambda_batch = alpha_lambda_batch / beta_lambda_batch
 
             return alpha_lambda_batch, beta_lambda_batch, E_lambda_batch
 
@@ -550,7 +550,7 @@ class SparseTPR(nn.Module):
             
             # --- Target Parameters for q(u, r) ---
             # Target for q(u)
-            E_r = self.alpha_r / self.beta_r.clamp(min=EPSILON)
+            E_r = (self.alpha_r / self.beta_r).clamp(min=EPSILON)
             S_u_inv_data_term = (A_batch.T * E_lambda_batch) @ A_batch / params['noisescale'] * scaling_factor
             target_S_u_inv = E_r * K_ZZ_inv + S_u_inv_data_term
             target_S_u_inv = target_S_u_inv.add_jitter(JITTER)
@@ -559,9 +559,12 @@ class SparseTPR(nn.Module):
             target_m_u = target_S_u @ m_u_data_term
             
             # Target for q(r) - using simplified update
-            target_alpha_r = params['dof_func'] / 2.0 + self.M / 2.0 + self.N / 2.0
+            target_alpha_r = params['dof_func'] / 2.0 + self.M / 2.0
             E_quad_u = torch.trace(K_ZZ_inv @ (target_S_u + target_m_u @ target_m_u.T))
             target_beta_r = params['dof_func'] / 2.0 + E_quad_u / 2.0
+
+            target_alpha_r = target_alpha_r
+            target_beta_r = target_beta_r
 
             # Solve another variational problem argmin KL(q(u,r)||q(u)q(r))
             _, target_S_u, _, _ = get_optimal_gaussian_gamma(target_m_u, target_S_u, target_alpha_r, target_beta_r)

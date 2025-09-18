@@ -23,7 +23,6 @@ def kl_gamma(alpha1, beta1, alpha2, beta2):
         + alpha1 * (beta2 - beta1) / beta1
     )
 
-
 def kl_gaussian(mu1, Sigma1, mu2, Sigma2):
     """
     Calculates the KL divergence KL(P1 || P2) between two D-dimensional
