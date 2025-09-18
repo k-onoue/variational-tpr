@@ -218,9 +218,17 @@ def sample_mvt(mu, scale_tril, dof, num_samples=1):
     D = mu.shape[0]
     mu = mu.view(D, 1) # Ensure mu is a column vector for broadcasting
     
+
+    print()
+    print(f'dof: {dof}')
+    print()
+
+
     # Sample from standard Normal and Gamma distributions
     w = torch.randn(D, num_samples, device=mu.device, dtype=mu.dtype)
-    gamma_dist = Gamma(dof / 2.0, dof / 2.0)
+    alpha = (dof / 2.0).clamp(min=EPSILON)
+    beta = (dof / 2.0).clamp(min=EPSILON)
+    gamma_dist = Gamma(alpha, beta)
     g = gamma_dist.sample((num_samples,)).view(1, num_samples)
     
     # Combine to get samples using the reparameterization trick
