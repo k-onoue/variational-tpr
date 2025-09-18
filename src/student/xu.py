@@ -114,10 +114,10 @@ class XuTPR(nn.Module):
         return {
             "lengthscale": torch.exp(self.log_lengthscale).clamp(min=EPSILON),
             "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON),
-            "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON),
-            "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON),
+            "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON + 2.0),
+            "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON + 2.0),
             "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON),
-            "dof_q": torch.exp(self.log_dof_q).clamp(min=EPSILON),
+            "dof_q": torch.exp(self.log_dof_q).clamp(min=EPSILON + 2.0),
         }
 
     def _calculate_log_prior(self, params):
