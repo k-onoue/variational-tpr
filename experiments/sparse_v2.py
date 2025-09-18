@@ -417,8 +417,8 @@ if __name__ == '__main__':
     EXPERIMENT_CONFIG = {
         'data': {
             'base_path': './datasets/dataset_combined/',
-            'dataset_names': ['Taxi'],
-            'num_splits': 1,
+            'dataset_names': ['Taxi', 'Taxi_Outliers'],
+            'num_splits': 10,
         },
         'device': 'cuda:0' if torch.cuda.is_available() else 'cpu',
         'models': {
