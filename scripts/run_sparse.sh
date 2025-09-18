@@ -2,7 +2,7 @@
 
 # --- Configuration ---
 # List of models to run
-MODEL_NAMES=("SparseGPR" "SparseTPR" "XuSparseTPR")
+MODEL_NAMES=("SparseTPR" "XuSparseTPR")
 
 # Path to the Python script to be executed
 PYTHON_SCRIPT="experiments/sparse_v4.py" # Make sure this filename is correct
