@@ -208,7 +208,10 @@ class XuTPR(nn.Module):
 
 
             if (epoch + 1) % 10 == 0:
-                logging.info(f"Epoch {epoch+1:4d}/{epochs} | Fit Time: {fit_end_time - fit_start_time:.3f}s | Loss: {loss.item():.3f} | ELBO: {elbo.item():.3f}")
+                # 1. ハイパーパラメータの辞書を取得
+                hyperparams = self._get_hyperparams()
+                hyperparams_str = ", ".join([f"{k}: {v.item():.3f}" for k, v in hyperparams.items()])
+                logging.info(f"Epoch {epoch+1:4d}/{epochs} | Fit Time: {fit_end_time - fit_start_time:.3f}s | Loss: {loss.item():.3f} | ELBO: {elbo.item():.3f} | LogPrior: {log_prior.item():.3f} | Hyparams: [{hyperparams_str}]")
 
             # Evaluation Step
             if X_test is not None and y_test is not None and (epoch + 1) % eval_interval == 0:
@@ -303,6 +306,7 @@ class XuSparseTPR(nn.Module):
         self.dof_func_prior = LogNormalPrior(loc=1.0, scale=1.0)
         self.dof_lik_prior = LogNormalPrior(loc=1.0, scale=1.0)
         self.noisescale_prior = LogNormalPrior(loc=-4.0, scale=1.0)
+        self.dof_q_prior = LogNormalPrior(loc=1.0, scale=1.0)
 
         # --- Initialize Hyperparameters ---
         hyperparameters = self._initialize_hyperparameters(hyper_settings)
@@ -353,7 +357,8 @@ class XuSparseTPR(nn.Module):
             'outputscale': {'prior': self.outputscale_prior, 'is_vector': False},
             'dof_func': {'prior': self.dof_func_prior, 'is_vector': False},
             'dof_lik': {'prior': self.dof_lik_prior, 'is_vector': False},
-            'noisescale': {'prior': self.noisescale_prior, 'is_vector': False}
+            'noisescale': {'prior': self.noisescale_prior, 'is_vector': False},
+            'dof_q': {'prior': self.dof_q_prior, 'is_vector': False} # Prior for dof_q
         }
         initialized_params = {}
         for name, config in param_configs.items():
@@ -393,6 +398,7 @@ class XuSparseTPR(nn.Module):
         if self.hyper_optim_mode['dof_func'] == 'MAP': log_prior += self.dof_func_prior.log_prob(params['dof_func'])
         if self.hyper_optim_mode['dof_lik'] == 'MAP': log_prior += self.dof_lik_prior.log_prob(params['dof_lik'])
         if self.hyper_optim_mode['noisescale'] == 'MAP': log_prior += self.noisescale_prior.log_prob(params['noisescale'])
+        if self.hyper_optim_mode['dof_q'] == 'MAP': log_prior += self.dof_q_prior.log_prob(params['dof_q'])
         return log_prior
 
     def calculate_elbo(self, X_batch, y_batch, num_samples=100):
@@ -571,7 +577,28 @@ class XuSparseTPR(nn.Module):
             }
 
             if (epoch + 1) % eval_interval == 0:
-                logging.info(f"Epoch {epoch+1:4d}/{epochs} | Loss: {avg_loss:.3f} | ELBO: {avg_elbo:.3f}")
+                hyperparams = self._get_hyperparams()
+                
+                # Create a list to hold formatted hyperparameter strings
+                formatted_hyperparams = []
+                for k, v in hyperparams.items():
+                    if v.numel() == 1:
+                        # It's a scalar, use .item()
+                        formatted_hyperparams.append(f"{k}: {v.item():.3f}")
+                    else:
+                        # It's a vector, format the numpy array for a clean log
+                        val_str = np.array2string(v.detach().cpu().numpy(), precision=3, separator=',')
+                        formatted_hyperparams.append(f"{k}: {val_str}")
+                
+                hyperparams_str = ", ".join(formatted_hyperparams)
+                
+                # Note: The original logging used the last batch's values. We continue that here.
+                last_loss = loss.item()
+                last_elbo = elbo.item()
+                last_log_prior = log_prior.item()
+                last_fit_time = fit_end_time - fit_start_time
+
+                logging.info(f"Epoch {epoch+1:4d}/{epochs} | Fit Time: {last_fit_time:.3f}s | Loss: {last_loss:.3f} | ELBO: {last_elbo:.3f} | LogPrior: {last_log_prior:.3f} | Hyparams: [{hyperparams_str}]")
 
             if X_test is not None and y_test is not None and (epoch + 1) % eval_interval == 0:
                 metrics = self._evaluate(X_test, y_test, num_samples=num_samples)

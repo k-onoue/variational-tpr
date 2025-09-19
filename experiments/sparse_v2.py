@@ -418,7 +418,7 @@ if __name__ == '__main__':
         'data': {
             'base_path': './datasets/dataset_combined/',
             'dataset_names': ['Taxi', 'Taxi_Outliers'],
-            'num_splits': 10,
+            'num_splits': 1,
         },
         'device': 'cuda:0' if torch.cuda.is_available() else 'cpu',
         'models': {
@@ -481,6 +481,7 @@ if __name__ == '__main__':
                     'noisescale':  {'optim': 'MAP'}, 
                     'dof_func':    {'optim': 'MAP'}, 
                     'dof_lik':     {'optim': 'MAP'}, 
+                    'dof_q':       {'optim': 'MAP'},
                 }
             },
         }
