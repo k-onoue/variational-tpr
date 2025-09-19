@@ -115,8 +115,8 @@ class XuTPR(nn.Module):
     def _get_hyperparams(self):
         """Returns transformed (positive) parameters from their log-space storage."""
         return {
-            "lengthscale": torch.exp(self.log_lengthscale).clamp(min=EPSILON),
-            "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON),
+            "lengthscale": torch.exp(self.log_lengthscale).clamp(min=EPSILON, max=100.0),
+            "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON, max=100.0),
             "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON+2.0),
             "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON+2.0),
             "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON*100),
@@ -383,8 +383,8 @@ class XuSparseTPR(nn.Module):
 
     def _get_hyperparams(self):
         return {
-            "lengthscale": torch.exp(self.log_lengthscale).clamp(min=EPSILON),
-            "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON),
+            "lengthscale": torch.exp(self.log_lengthscale).clamp(min=EPSILON, max=100.0),
+            "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON, max=100.0),
             "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON+2.0),
             "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON+2.0),
             "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON*100),
