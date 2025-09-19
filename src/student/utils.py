@@ -2,7 +2,7 @@ import torch
 from linear_operator.operators import to_linear_operator
 from torch.distributions import Gamma
 
-from .constants import EPSILON
+from .constants import EPSILON, JITTER
 
 # --- Original Functions (Now with added robustness) ---
 
@@ -176,6 +176,7 @@ def gaussian_gamma_natural_to_standard_covariance_param(eta1, eta2, eta3, eta4):
     """
     identity = torch.eye(eta2.shape[0], device=eta2.device, dtype=eta2.dtype)
     S_inv = -2 * to_linear_operator(eta2)
+    S_inv = S_inv.add_jitter(JITTER)  # Add jitter for numerical stability
     S = S_inv.solve(identity)
     m = S @ eta1
     alpha = (eta3 + 0.5).clamp(min=EPSILON)

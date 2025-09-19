@@ -96,7 +96,7 @@ class GPR(nn.Module):
         return {
             "lengthscale": torch.exp(self.log_lengthscale).clamp(min=EPSILON),
             "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON),
-            "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON),
+            "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON*100),
         }
 
     def _calculate_log_prior(self, params):
@@ -321,9 +321,9 @@ class SparseGPR(nn.Module):
 
     def _get_hyperparams(self):
         return {
-            "lengthscale": torch.exp(self.log_lengthscale),
-            "outputscale": torch.exp(self.log_outputscale),
-            "noisescale": torch.exp(self.log_noisescale)
+            "lengthscale": torch.exp(self.log_lengthscale).clamp(min=EPSILON),
+            "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON),
+            "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON*100),
         }
 
     def _calculate_log_prior(self, params):
