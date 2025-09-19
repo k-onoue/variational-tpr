@@ -17,6 +17,9 @@ from .priors import GammaPrior, LogNormalPrior
 from .utils import kl_mvt_empirical, sample_mvt
 
 
+JITTER = 1e-4
+
+
 class XuTPR(nn.Module):
     """
     Non-Sparse Variational Student-t Process Regression.
