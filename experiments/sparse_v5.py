@@ -53,11 +53,11 @@ def run_single_experiment(model_name, dataset_name, split_idx, config, output_ba
     run_filename = f"{model_name}_{dataset_name}_split{split_idx}.csv"
     run_filepath = os.path.join(output_base_dir, run_filename)
 
-    if os.path.exists(run_filepath):
-        logging.info(
-            f"Skipping split {split_idx}, result file already exists: {run_filepath}"
-        )
-        return
+    # if os.path.exists(run_filepath):
+    #     logging.info(
+    #         f"Skipping split {split_idx}, result file already exists: {run_filepath}"
+    #     )
+    #     return
 
     X_train, y_train, X_test, y_test = load_split_data(
         base_path, dataset_name, split_idx

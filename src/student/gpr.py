@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.quasirandom import SobolEngine
 from linear_operator import to_linear_operator
 from linear_operator.operators import to_linear_operator
 from sklearn.cluster import KMeans
@@ -313,11 +314,23 @@ class SparseGPR(nn.Module):
             elif method == "random":
                 indices = np.random.choice(self.N, self.M, replace=False)
                 Z_init = self.X_full[indices].clone()
+            # <<< ADDED START: Sobol sequence initialization >>>
+            elif method == "sobol":
+                logging.info("Initializing inducing points with Sobol sequence.")
+                sobol_engine = SobolEngine(dimension=self.D, scramble=True, seed=42)
+                # Generate M points in the unit hypercube [0, 1]^D
+                sobol_points = sobol_engine.draw(self.M).to(self.device, dtype=self.X_full.dtype)
+
+                # Scale points to the bounding box of the training data
+                X_min = self.X_full.min(dim=0).values
+                X_max = self.X_full.max(dim=0).values
+                Z_init = X_min + sobol_points * (X_max - X_min)
+            # <<< ADDED END >>>
             else: raise ValueError(f"Unknown init method: {method}")
         else:
             indices = np.random.choice(self.N, self.M, replace=True)
             Z_init = self.X_full[indices].clone()
-        return Z_init.to(dtype=self.dtype, device=self.device)
+        return Z_init.to(dtype=self.X_full.dtype, device=self.device)
 
     def _get_hyperparams(self):
         return {

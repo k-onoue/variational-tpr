@@ -3,6 +3,7 @@ import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.quasirandom import SobolEngine
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.metrics import mean_squared_error
@@ -446,6 +447,18 @@ class SparseTPR(nn.Module):
             elif method == "random":
                 indices = np.random.choice(self.N, self.M, replace=False)
                 Z_init = self.X_full[indices].clone()
+            # <<< ADDED START: Sobol sequence initialization >>>
+            elif method == "sobol":
+                logging.info("Initializing inducing points with Sobol sequence.")
+                sobol_engine = SobolEngine(dimension=self.D, scramble=True, seed=42)
+                # Generate M points in the unit hypercube [0, 1]^D
+                sobol_points = sobol_engine.draw(self.M).to(self.device, dtype=self.X_full.dtype)
+                
+                # Scale points to the bounding box of the training data
+                X_min = self.X_full.min(dim=0).values
+                X_max = self.X_full.max(dim=0).values
+                Z_init = X_min + sobol_points * (X_max - X_min)
+            # <<< ADDED END >>>
             else: raise ValueError(f"Unknown init method: {method}")
         else:
             indices = np.random.choice(self.N, self.M, replace=True)

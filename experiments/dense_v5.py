@@ -206,7 +206,7 @@ if __name__ == "__main__":
                     "epochs": 100,
                     "eval_interval": 1,
                     "lr_hyper": 0.01,
-                    "lr_f": 0.1,
+                    "lr_f": 0.01,
                     "f_steps": 1,
                 },
                 "hyper_settings": {
