@@ -2,11 +2,8 @@
 
 # --- Configuration ---
 # List of models to run
-# MODEL_NAMES=(
-#     "XuTPR=10" "XuTPR=100" "XuTPR=1000" "XuTPR=1000"
-#     "TangTPR=1" "TangTPR=10" "TangTPR=100"
-# )
 MODEL_NAMES=(
+    "XuTPR=10" "XuTPR=100" "XuTPR=1000" "XuTPR=1000"
     "TangTPR=1" "TangTPR=10" "TangTPR=100"
 )
 
