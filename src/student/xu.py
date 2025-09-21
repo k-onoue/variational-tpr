@@ -414,7 +414,7 @@ class XuSparseTPR(nn.Module):
             "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON),
             "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON+2.0),
             "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON+2.0),
-            "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON*100),
+            "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON*1000),
             "dof_q": torch.exp(self.log_dof_q).clamp(min=EPSILON+2.0),
         }
 
