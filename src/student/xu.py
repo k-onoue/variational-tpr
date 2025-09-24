@@ -208,10 +208,23 @@ class XuTPR(nn.Module):
             history['fit_times'].append(fit_end_time - fit_start_time)
 
 
-            if (epoch + 1) % 10 == 0:
+            if (epoch + 1) % eval_interval == 0:
                 # 1. ハイパーパラメータの辞書を取得
                 hyperparams = self._get_hyperparams()
-                hyperparams_str = ", ".join([f"{k}: {v.item():.3f}" for k, v in hyperparams.items()])
+                
+                # --- START OF FIX ---
+                param_strs = []
+                for k, v in hyperparams.items():
+                    if v.numel() == 1:
+                        # It's a scalar, format it as before
+                        param_strs.append(f"{k}: {v.item():.3f}")
+                    else:
+                        # It's a vector, format it as a numpy array string
+                        rounded_vals = np.round(v.detach().cpu().numpy(), 3)
+                        param_strs.append(f"{k}: {rounded_vals}")
+                hyperparams_str = ", ".join(param_strs)
+                # --- END OF FIX ---
+
                 logging.info(f"Epoch {epoch+1:4d}/{epochs} | Fit Time: {fit_end_time - fit_start_time:.3f}s | Loss: {loss.item():.3f} | ELBO: {elbo.item():.3f} | LogPrior: {log_prior.item():.3f} | Hyparams: [{hyperparams_str}]")
 
             # Evaluation Step
