@@ -471,7 +471,7 @@ class SparseTPR(nn.Module):
             "outputscale": torch.exp(self.log_outputscale).clamp(min=EPSILON),
             "dof_func": torch.exp(self.log_dof_func).clamp(min=EPSILON),
             "dof_lik": torch.exp(self.log_dof_lik).clamp(min=EPSILON),
-            "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON*1000),
+            "noisescale": torch.exp(self.log_noisescale).clamp(min=EPSILON*100),
         }
 
     def _calculate_log_prior(self, params):
