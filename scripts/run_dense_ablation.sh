@@ -7,7 +7,7 @@ MODEL_NAMES=(
 )
 
 # Path to the Python script to be executed
-PYTHON_SCRIPT="experiments/dense_v5.py"
+PYTHON_SCRIPT="experiments/dense_v7.py"
 
 # List of datasets (should match the config in the Python script)
 DATASETS=(
@@ -16,7 +16,7 @@ DATASETS=(
     'Boston_Outliers' 'Diabetes_Outliers' 'ELE_Outliers' 'MPG_Outliers'
     'Machine_CPU_Outliers' 'Neal_Outliers' 'Neal_YOutlier' 'Yacht_Outliers'
 )
-NUM_SPLITS=10
+NUM_SPLITS=5
 NUM_DATASETS=${#DATASETS[@]}
 TOTAL_JOBS=$((NUM_DATASETS * NUM_SPLITS - 1)) # Job array indices are 0-based, so subtract 1
 
