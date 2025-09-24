@@ -607,80 +607,6 @@ class SparseTPR(nn.Module):
         loss.backward()
         optimizer.step()
 
-    # def fit(
-    #     self,
-    #     epochs=100, batch_size=128,
-    #     hyper_lr=0.01, var_lr=0.1,
-    #     X_test=None, y_test=None, eval_interval=10
-    # ):
-    #     parameters_to_optimize = [p for name, p in self.named_parameters() if self.hyper_optim_mode.get(name.replace("log_",""), "MLE") != 'FIX']
-
-
-    #     optimizer = optim.Adam(parameters_to_optimize, lr=hyper_lr) if parameters_to_optimize else None
-    #     dataset = TensorDataset(self.X_full, self.y_full)
-    #     generator = torch.Generator(device='cpu')
-    #     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, generator=generator)
-
-    #     logging.info(f"Starting SVI optimization for {epochs} epochs...")
-
-    #     for epoch in range(epochs):
-    #         epoch_loss = 0.0
-    #         epoch_elbo = 0.0
-    #         epoch_log_prior = 0.0
-    #         epoch_fit_time = 0.0
-    #         num_batches = 0
-
-    #         for X_batch, y_batch in dataloader:
-    #             fit_start_time = time.time()
-
-    #             params = self._get_hyperparams()
-    #             K_ZZ_base = to_linear_operator(self.kernel(self.Z, self.Z, params['lengthscale'], params['outputscale']))
-    #             K_ZZ = K_ZZ_base.add_jitter(JITTER)
-    #             K_XZ_batch = self.kernel(X_batch, self.Z, params['lengthscale'], params['outputscale'])
-
-    #             local_params = self._e_step_local(X_batch, y_batch, K_XZ_batch, K_ZZ, params)
-    #             self._e_step_global(X_batch, y_batch, K_XZ_batch, K_ZZ, local_params, params, var_lr)
-
-    #             elbo = self._calculate_elbo(X_batch, y_batch, K_XZ_batch, K_ZZ, local_params)
-    #             log_prior = self._calculate_log_prior(params)
-    #             loss = - (elbo + log_prior)
-
-    #             self._m_step(optimizer, loss)
-
-    #             fit_end_time = time.time()
-
-    #             epoch_loss += loss.item()
-    #             epoch_elbo += elbo.item()
-    #             epoch_log_prior += log_prior.item()
-    #             epoch_fit_time += (fit_end_time - fit_start_time)
-    #             num_batches += 1
-
-    #         # --- Yield results for the completed epoch ---
-    #         epoch_results = {
-    #             'epoch': epoch + 1,
-    #             'loss': epoch_loss / num_batches,
-    #             'elbo': epoch_elbo / num_batches,
-    #             'log_prior': epoch_log_prior / num_batches,
-    #             'time': epoch_fit_time,
-    #         }
-
-    #         if (epoch + 1) % eval_interval == 0:
-    #             params_final = self._get_hyperparams()
-    #             ls_str = ", ".join([f"{l:.3f}" for l in params_final['lengthscale']])
-    #             logging.info(f"Epoch {epoch+1:3d}/{epochs} | Fit Time: {epoch_fit_time:.3f}s | ELBO: {epoch_results['elbo']:8.2f} | l: [{ls_str}] | var: {params_final['outputscale']:.3f} | noise2: {params_final['noisescale']:3f} | dof_func: {params_final['dof_func']:.2f} | dof_lik: {params_final['dof_lik']:.2f}")
-
-    #         if X_test is not None and y_test is not None and (epoch + 1) % eval_interval == 0:
-    #             metrics = self._evaluate(X_test, y_test)
-    #             epoch_results.update(metrics) # Add RMSE etc. to the results dict
-    #             logging.info(
-    #                 f"Epoch {epoch+1:3d}/{epochs} | Test Metrics: "
-    #                 f"RMSE: {metrics['rmse']:.3f}"
-    #             )
-
-    #         yield epoch_results
-
-    #     logging.info("Optimization finished.")
-
     def fit(
         self,
         epochs=100, batch_size=128,
@@ -707,43 +633,19 @@ class SparseTPR(nn.Module):
             for X_batch, y_batch in dataloader:
                 fit_start_time = time.time()
 
-                # --- Part 1: Calculate Loss for M-Step ---
-                # These calculations use the state of the model from the *previous* iteration's updates.
-                params_for_grad = self._get_hyperparams()
-                K_ZZ_base_for_grad = to_linear_operator(self.kernel(self.Z, self.Z, params_for_grad['lengthscale'], params_for_grad['outputscale']))
-                K_ZZ_for_grad = K_ZZ_base_for_grad.add_jitter(JITTER)
-                K_XZ_batch_for_grad = self.kernel(X_batch, self.Z, params_for_grad['lengthscale'], params_for_grad['outputscale'])
-                
-                # We need to run the local E-step to get the local variational parameters (lambda)
-                # required to calculate the ELBO, which is the basis for our loss.
-                local_params_for_grad = self._e_step_local(X_batch, y_batch, K_XZ_batch_for_grad, K_ZZ_for_grad, params_for_grad)
-                
-                elbo = self._calculate_elbo(X_batch, y_batch, K_XZ_batch_for_grad, K_ZZ_for_grad, local_params_for_grad)
-                log_prior = self._calculate_log_prior(params_for_grad)
+                params = self._get_hyperparams()
+                K_ZZ_base = to_linear_operator(self.kernel(self.Z, self.Z, params['lengthscale'], params['outputscale']))
+                K_ZZ = K_ZZ_base.add_jitter(JITTER)
+                K_XZ_batch = self.kernel(X_batch, self.Z, params['lengthscale'], params['outputscale'])
+
+                local_params = self._e_step_local(X_batch, y_batch, K_XZ_batch, K_ZZ, params)
+                self._e_step_global(X_batch, y_batch, K_XZ_batch, K_ZZ, local_params, params, var_lr)
+
+                elbo = self._calculate_elbo(X_batch, y_batch, K_XZ_batch, K_ZZ, local_params)
+                log_prior = self._calculate_log_prior(params)
                 loss = - (elbo + log_prior)
 
-                # --- Part 2: M-Step (Update Model Parameters) ---
-                # Now, perform the gradient step to update the hyperparameters (lengthscale, etc.) and inducing points (Z).
                 self._m_step(optimizer, loss)
-
-                # --- Part 3: E-Step (Update Variational Parameters) ---
-                # The model parameters have just been updated. We must use these new parameters
-                # to update the global variational distribution q(u, r).
-                
-                # Get the NEW hyperparameters after the M-step.
-                params_for_var_update = self._get_hyperparams()
-                
-                # RECALCULATE kernels with the new hyperparameters and inducing points.
-                K_ZZ_base_new = to_linear_operator(self.kernel(self.Z, self.Z, params_for_var_update['lengthscale'], params_for_var_update['outputscale']))
-                K_ZZ_new = K_ZZ_base_new.add_jitter(JITTER)
-                K_XZ_batch_new = self.kernel(X_batch, self.Z, params_for_var_update['lengthscale'], params_for_var_update['outputscale'])
-                
-                # Recalculate local params with new hypers before updating global ones
-                local_params_new = self._e_step_local(X_batch, y_batch, K_XZ_batch_new, K_ZZ_new, params_for_var_update)
-                
-                # Finally, perform the global E-step using the newest parameters.
-                self._e_step_global(X_batch, y_batch, K_XZ_batch_new, K_ZZ_new, local_params_new, params_for_var_update, var_lr)
-
 
                 fit_end_time = time.time()
 
@@ -778,6 +680,104 @@ class SparseTPR(nn.Module):
             yield epoch_results
 
         logging.info("Optimization finished.")
+
+    # def fit(
+    #     self,
+    #     epochs=100, batch_size=128,
+    #     hyper_lr=0.01, var_lr=0.1,
+    #     X_test=None, y_test=None, eval_interval=10
+    # ):
+    #     parameters_to_optimize = [p for name, p in self.named_parameters() if self.hyper_optim_mode.get(name.replace("log_",""), "MLE") != 'FIX']
+
+
+    #     optimizer = optim.Adam(parameters_to_optimize, lr=hyper_lr) if parameters_to_optimize else None
+    #     dataset = TensorDataset(self.X_full, self.y_full)
+    #     generator = torch.Generator(device='cpu')
+    #     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, generator=generator)
+
+    #     logging.info(f"Starting SVI optimization for {epochs} epochs...")
+
+    #     for epoch in range(epochs):
+    #         epoch_loss = 0.0
+    #         epoch_elbo = 0.0
+    #         epoch_log_prior = 0.0
+    #         epoch_fit_time = 0.0
+    #         num_batches = 0
+
+    #         for X_batch, y_batch in dataloader:
+    #             fit_start_time = time.time()
+
+    #             # --- Part 1: Calculate Loss for M-Step ---
+    #             # These calculations use the state of the model from the *previous* iteration's updates.
+    #             params_for_grad = self._get_hyperparams()
+    #             K_ZZ_base_for_grad = to_linear_operator(self.kernel(self.Z, self.Z, params_for_grad['lengthscale'], params_for_grad['outputscale']))
+    #             K_ZZ_for_grad = K_ZZ_base_for_grad.add_jitter(JITTER)
+    #             K_XZ_batch_for_grad = self.kernel(X_batch, self.Z, params_for_grad['lengthscale'], params_for_grad['outputscale'])
+                
+    #             # We need to run the local E-step to get the local variational parameters (lambda)
+    #             # required to calculate the ELBO, which is the basis for our loss.
+    #             local_params_for_grad = self._e_step_local(X_batch, y_batch, K_XZ_batch_for_grad, K_ZZ_for_grad, params_for_grad)
+                
+    #             elbo = self._calculate_elbo(X_batch, y_batch, K_XZ_batch_for_grad, K_ZZ_for_grad, local_params_for_grad)
+    #             log_prior = self._calculate_log_prior(params_for_grad)
+    #             loss = - (elbo + log_prior)
+
+    #             # --- Part 2: M-Step (Update Model Parameters) ---
+    #             # Now, perform the gradient step to update the hyperparameters (lengthscale, etc.) and inducing points (Z).
+    #             self._m_step(optimizer, loss)
+
+    #             # --- Part 3: E-Step (Update Variational Parameters) ---
+    #             # The model parameters have just been updated. We must use these new parameters
+    #             # to update the global variational distribution q(u, r).
+                
+    #             # Get the NEW hyperparameters after the M-step.
+    #             params_for_var_update = self._get_hyperparams()
+                
+    #             # RECALCULATE kernels with the new hyperparameters and inducing points.
+    #             K_ZZ_base_new = to_linear_operator(self.kernel(self.Z, self.Z, params_for_var_update['lengthscale'], params_for_var_update['outputscale']))
+    #             K_ZZ_new = K_ZZ_base_new.add_jitter(JITTER)
+    #             K_XZ_batch_new = self.kernel(X_batch, self.Z, params_for_var_update['lengthscale'], params_for_var_update['outputscale'])
+                
+    #             # Recalculate local params with new hypers before updating global ones
+    #             local_params_new = self._e_step_local(X_batch, y_batch, K_XZ_batch_new, K_ZZ_new, params_for_var_update)
+                
+    #             # Finally, perform the global E-step using the newest parameters.
+    #             self._e_step_global(X_batch, y_batch, K_XZ_batch_new, K_ZZ_new, local_params_new, params_for_var_update, var_lr)
+
+
+    #             fit_end_time = time.time()
+
+    #             epoch_loss += loss.item()
+    #             epoch_elbo += elbo.item()
+    #             epoch_log_prior += log_prior.item()
+    #             epoch_fit_time += (fit_end_time - fit_start_time)
+    #             num_batches += 1
+
+    #         # --- Yield results for the completed epoch ---
+    #         epoch_results = {
+    #             'epoch': epoch + 1,
+    #             'loss': epoch_loss / num_batches,
+    #             'elbo': epoch_elbo / num_batches,
+    #             'log_prior': epoch_log_prior / num_batches,
+    #             'time': epoch_fit_time,
+    #         }
+
+    #         if (epoch + 1) % eval_interval == 0:
+    #             params_final = self._get_hyperparams()
+    #             ls_str = ", ".join([f"{l:.3f}" for l in params_final['lengthscale']])
+    #             logging.info(f"Epoch {epoch+1:3d}/{epochs} | Fit Time: {epoch_fit_time:.3f}s | ELBO: {epoch_results['elbo']:8.2f} | l: [{ls_str}] | var: {params_final['outputscale']:.3f} | noise2: {params_final['noisescale']:3f} | dof_func: {params_final['dof_func']:.2f} | dof_lik: {params_final['dof_lik']:.2f}")
+
+    #         if X_test is not None and y_test is not None and (epoch + 1) % eval_interval == 0:
+    #             metrics = self._evaluate(X_test, y_test)
+    #             epoch_results.update(metrics) # Add RMSE etc. to the results dict
+    #             logging.info(
+    #                 f"Epoch {epoch+1:3d}/{epochs} | Test Metrics: "
+    #                 f"RMSE: {metrics['rmse']:.3f}"
+    #             )
+
+    #         yield epoch_results
+
+    #     logging.info("Optimization finished.")
 
     def predict(self, X_test):
         """
