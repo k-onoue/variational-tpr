@@ -164,6 +164,112 @@ class TangTPR(nn.Module):
         
         return ln_Q_at_f_hat + 0.5 * log_det_hessian
     
+    # def fit(
+    #     self, 
+    #     epochs=100, 
+    #     lr_hyper=0.01, 
+    #     lr_f=0.1, f_steps=10, 
+    #     X_test=None, y_test=None, eval_interval=10
+    # ):
+    #     """
+    #     Trains the model by minimizing the approximate negative log marginal likelihood.
+    #     This involves a nested optimization and records training history.
+    #     1. Inner loop: Find the posterior mode f_hat using LBFGS.
+    #     2. Outer loop: Update hyperparameters using Adam.
+        
+    #     Args:
+    #         epochs (int): Number of training epochs.
+    #         lr_hyper (float): Learning rate for the hyperparameter optimizer (Adam).
+    #         lr_f (float): Learning rate for the latent mode optimizer (L-BFGS).
+    #         f_steps (int): Number of optimization steps for finding f_hat in each epoch.
+    #         X_test (torch.Tensor, optional): Test data for periodic evaluation.
+    #         y_test (torch.Tensor, optional): Test labels for periodic evaluation.
+    #         eval_interval (int): How often (in epochs) to perform evaluation.
+
+    #     Returns:
+    #         dict: A history dictionary containing training metrics.
+    #     """
+    #     hyper_params_to_opt = []
+    #     for name, p in self.named_parameters():
+    #         if name != 'f_hat' and self.hyper_optim_mode.get(name.replace("log_", ""), "MLE") != 'FIX':
+    #             hyper_params_to_opt.append(p)
+        
+    #     optimizer_hyper = optim.Adam(hyper_params_to_opt, lr=lr_hyper) if hyper_params_to_opt else None
+    #     optimizer_f = optim.LBFGS([self.f_hat], lr=lr_f)
+        
+    #     # --- History Recording Initialization ---
+    #     history = {
+    #         'elbo': [], 
+    #         'log_prior': [], 
+    #         'loss': [], 
+    #         'hyperparams': [],
+    #         'eval_epochs': [], 
+    #         'eval_metrics': [], 
+    #         'fit_times': []
+    #     }
+        
+    #     logging.info(f"Starting training for {epochs} epochs...")
+    #     for epoch in range(epochs):
+    #         fit_start_time = time.time()
+            
+    #         # --- Step 1: Find posterior mode f_hat (inner optimization) ---
+    #         params = self._get_hyperparams()
+    #         K_XX_base = self.kernel(self.X_train, self.X_train, params['lengthscale'], params['outputscale'])
+    #         K_XX_op = to_linear_operator(K_XX_base).add_jitter(JITTER)
+
+    #         def closure_f():
+    #             optimizer_f.zero_grad()
+    #             loss_f = self._calculate_ln_Q(self.f_hat, params, K_XX_op.detach())
+    #             loss_f.backward(retain_graph=True)
+    #             return loss_f
+            
+    #         for _ in range(f_steps):
+    #             optimizer_f.step(closure_f)
+            
+    #         f_hat_detached = self.f_hat.detach().clone()
+
+    #         # --- Step 2: Update hyperparameters (outer optimization) ---
+    #         if optimizer_hyper:
+    #             optimizer_hyper.zero_grad()
+                
+    #             params = self._get_hyperparams()
+    #             K_XX_base = self.kernel(self.X_train, self.X_train, params['lengthscale'], params['outputscale'])
+    #             K_XX_op = to_linear_operator(K_XX_base).add_jitter(JITTER)
+
+    #             approx_nll = self._calculate_approx_nll(f_hat_detached, params, K_XX_op)
+    #             log_prior = self._calculate_log_prior(params)
+                
+    #             loss_hyper = approx_nll - log_prior
+    #             loss_hyper.backward()
+    #             optimizer_hyper.step()
+
+    #             fit_end_time = time.time()
+
+    #             # --- Store history for this epoch ---
+    #             history['elbo'].append(approx_nll.item())
+    #             history['log_prior'].append(log_prior.item())
+    #             history['loss'].append(loss_hyper.item())
+    #             history['hyperparams'].append({k: v.detach().cpu().numpy() for k, v in self._get_hyperparams().items()})
+    #             history['fit_times'].append(fit_end_time - fit_start_time)
+
+    #             if (epoch + 1) % 10 == 0:
+    #                 logging.info(f"Epoch {epoch+1:4d}/{epochs} | Fit Time: {fit_end_time - fit_start_time:.3f}s | NLL: {approx_nll.item():.3f} | Loss: {loss_hyper.item():.3f}")
+    #         else:
+    #             # If no hyperparams to optimize, just log time
+    #             fit_end_time = time.time()
+    #             history['fit_times'].append(fit_end_time - fit_start_time)
+
+
+    #         # --- Evaluation Step ---
+    #         if X_test is not None and y_test is not None and (epoch + 1) % eval_interval == 0:
+    #             metrics = self._evaluate(X_test, y_test)
+    #             history['eval_epochs'].append(epoch + 1)
+    #             history['eval_metrics'].append(metrics)
+    #             logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f}")
+
+    #     logging.info("Training finished.")
+    #     return history
+
     def fit(
         self, 
         epochs=100, 
@@ -174,13 +280,13 @@ class TangTPR(nn.Module):
         """
         Trains the model by minimizing the approximate negative log marginal likelihood.
         This involves a nested optimization and records training history.
-        1. Inner loop: Find the posterior mode f_hat using LBFGS.
+        1. Inner loop: Find the posterior mode f_hat using Adam.
         2. Outer loop: Update hyperparameters using Adam.
         
         Args:
             epochs (int): Number of training epochs.
             lr_hyper (float): Learning rate for the hyperparameter optimizer (Adam).
-            lr_f (float): Learning rate for the latent mode optimizer (L-BFGS).
+            lr_f (float): Learning rate for the latent mode optimizer (Adam).
             f_steps (int): Number of optimization steps for finding f_hat in each epoch.
             X_test (torch.Tensor, optional): Test data for periodic evaluation.
             y_test (torch.Tensor, optional): Test labels for periodic evaluation.
@@ -195,7 +301,8 @@ class TangTPR(nn.Module):
                 hyper_params_to_opt.append(p)
         
         optimizer_hyper = optim.Adam(hyper_params_to_opt, lr=lr_hyper) if hyper_params_to_opt else None
-        optimizer_f = optim.LBFGS([self.f_hat], lr=lr_f)
+        # --- MODIFIED: Changed LBFGS to Adam ---
+        optimizer_f = optim.Adam([self.f_hat], lr=lr_f)
         
         # --- History Recording Initialization ---
         history = {
@@ -217,14 +324,12 @@ class TangTPR(nn.Module):
             K_XX_base = self.kernel(self.X_train, self.X_train, params['lengthscale'], params['outputscale'])
             K_XX_op = to_linear_operator(K_XX_base).add_jitter(JITTER)
 
-            def closure_f():
+            # --- MODIFIED: Replaced LBFGS loop with standard Adam loop ---
+            for _ in range(f_steps):
                 optimizer_f.zero_grad()
                 loss_f = self._calculate_ln_Q(self.f_hat, params, K_XX_op.detach())
                 loss_f.backward(retain_graph=True)
-                return loss_f
-            
-            for _ in range(f_steps):
-                optimizer_f.step(closure_f)
+                optimizer_f.step()
             
             f_hat_detached = self.f_hat.detach().clone()
 
@@ -246,7 +351,8 @@ class TangTPR(nn.Module):
                 fit_end_time = time.time()
 
                 # --- Store history for this epoch ---
-                history['elbo'].append(approx_nll.item())
+                # history['elbo'].append(approx_nll.item())
+                history['elbo'].append(-approx_nll.item())
                 history['log_prior'].append(log_prior.item())
                 history['loss'].append(loss_hyper.item())
                 history['hyperparams'].append({k: v.detach().cpu().numpy() for k, v in self._get_hyperparams().items()})
