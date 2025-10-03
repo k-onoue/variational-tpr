@@ -1,7 +1,7 @@
 [project]
 name = "student"
 version = "0.1.0"
-description = "A variational Student-t process regressor, born in Nara, Japan and raised in München, Germany."
+description = ""
 readme = "README.md"
 requires-python = ">=3.12"
 
