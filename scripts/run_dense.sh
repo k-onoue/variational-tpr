@@ -2,18 +2,20 @@
 
 # --- Configuration ---
 # List of models to run
-MODEL_NAMES=("GPR" "TPR" "XuTPR" "TangTPR")
+# MODEL_NAMES=("GPR" "TPR" "XuTPR" "TangTPR")
+MODEL_NAMES=("TangTPR")
 
 # Path to the Python script to be executed
-PYTHON_SCRIPT="experiments/dense_v8.py"
+PYTHON_SCRIPT="experiments/dense_v9.py"
 
 # List of datasets (should match the config in the Python script)
-DATASETS=(
-    'Boston' 'Diabetes' 'ELE' 'MPG'
-    'Machine_CPU' 'Neal' 'Neal_XOutlier' 'Yacht'
-    'Boston_Outliers' 'Diabetes_Outliers' 'ELE_Outliers' 'MPG_Outliers'
-    'Machine_CPU_Outliers' 'Neal_Outliers' 'Neal_YOutlier' 'Yacht_Outliers'
-)
+# DATASETS=(
+#     'Boston' 'Diabetes' 'ELE' 'MPG'
+#     'Machine_CPU' 'Neal' 'Neal_XOutlier' 'Yacht'
+#     'Boston_Outliers' 'Diabetes_Outliers' 'ELE_Outliers' 'MPG_Outliers'
+#     'Machine_CPU_Outliers' 'Neal_Outliers' 'Neal_YOutlier' 'Yacht_Outliers'
+# )
+DATASETS=('ELE' 'ELE_Outliers')
 NUM_SPLITS=10
 NUM_DATASETS=${#DATASETS[@]}
 TOTAL_JOBS=$((NUM_DATASETS * NUM_SPLITS - 1)) # Job array indices are 0-based, so subtract 1
@@ -47,9 +49,9 @@ do
     sbatch << EOF
 #!/bin/bash -l
 #SBATCH --job-name=${MODEL_NAME}_dense    # Job name (unique for each model)
-#SBATCH --partition=cluster_short       # Partition (queue) name
+#SBATCH --partition=cluster_long       # Partition (queue) name
 #SBATCH --array=0-${TOTAL_JOBS}         # Job array indices
-#SBATCH --time=4:00:00                  # Set maximum runtime to 4 hours
+#SBATCH --time=1:00:00                  # Set maximum runtime to 4 hours
 #SBATCH --output=${OUTPUT_DIR}/logs/%x_%A_%a.out  # Standard output log file
 #SBATCH --error=${OUTPUT_DIR}/logs/%x_%A_%a.err   # Standard error log file
 #SBATCH --nodes=1                       # Number of nodes

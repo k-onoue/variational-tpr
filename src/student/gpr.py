@@ -166,7 +166,7 @@ class GPR(nn.Module):
                 metrics = self._evaluate(X_test, y_test)
                 history['eval_epochs'].append(epoch + 1)
                 history['eval_metrics'].append(metrics)
-                logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f} | Test NLL: {metrics['nll']:.4f}")
+                logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f}")
 
         logging.info("Training finished.")
         return history
