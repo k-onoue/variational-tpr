@@ -164,112 +164,6 @@ class TangTPR(nn.Module):
         
         return ln_Q_at_f_hat + 0.5 * log_det_hessian
     
-    # def fit(
-    #     self, 
-    #     epochs=100, 
-    #     lr_hyper=0.01, 
-    #     lr_f=0.1, f_steps=10, 
-    #     X_test=None, y_test=None, eval_interval=10
-    # ):
-    #     """
-    #     Trains the model by minimizing the approximate negative log marginal likelihood.
-    #     This involves a nested optimization and records training history.
-    #     1. Inner loop: Find the posterior mode f_hat using LBFGS.
-    #     2. Outer loop: Update hyperparameters using Adam.
-        
-    #     Args:
-    #         epochs (int): Number of training epochs.
-    #         lr_hyper (float): Learning rate for the hyperparameter optimizer (Adam).
-    #         lr_f (float): Learning rate for the latent mode optimizer (L-BFGS).
-    #         f_steps (int): Number of optimization steps for finding f_hat in each epoch.
-    #         X_test (torch.Tensor, optional): Test data for periodic evaluation.
-    #         y_test (torch.Tensor, optional): Test labels for periodic evaluation.
-    #         eval_interval (int): How often (in epochs) to perform evaluation.
-
-    #     Returns:
-    #         dict: A history dictionary containing training metrics.
-    #     """
-    #     hyper_params_to_opt = []
-    #     for name, p in self.named_parameters():
-    #         if name != 'f_hat' and self.hyper_optim_mode.get(name.replace("log_", ""), "MLE") != 'FIX':
-    #             hyper_params_to_opt.append(p)
-        
-    #     optimizer_hyper = optim.Adam(hyper_params_to_opt, lr=lr_hyper) if hyper_params_to_opt else None
-    #     optimizer_f = optim.LBFGS([self.f_hat], lr=lr_f)
-        
-    #     # --- History Recording Initialization ---
-    #     history = {
-    #         'elbo': [], 
-    #         'log_prior': [], 
-    #         'loss': [], 
-    #         'hyperparams': [],
-    #         'eval_epochs': [], 
-    #         'eval_metrics': [], 
-    #         'fit_times': []
-    #     }
-        
-    #     logging.info(f"Starting training for {epochs} epochs...")
-    #     for epoch in range(epochs):
-    #         fit_start_time = time.time()
-            
-    #         # --- Step 1: Find posterior mode f_hat (inner optimization) ---
-    #         params = self._get_hyperparams()
-    #         K_XX_base = self.kernel(self.X_train, self.X_train, params['lengthscale'], params['outputscale'])
-    #         K_XX_op = to_linear_operator(K_XX_base).add_jitter(JITTER)
-
-    #         def closure_f():
-    #             optimizer_f.zero_grad()
-    #             loss_f = self._calculate_ln_Q(self.f_hat, params, K_XX_op.detach())
-    #             loss_f.backward(retain_graph=True)
-    #             return loss_f
-            
-    #         for _ in range(f_steps):
-    #             optimizer_f.step(closure_f)
-            
-    #         f_hat_detached = self.f_hat.detach().clone()
-
-    #         # --- Step 2: Update hyperparameters (outer optimization) ---
-    #         if optimizer_hyper:
-    #             optimizer_hyper.zero_grad()
-                
-    #             params = self._get_hyperparams()
-    #             K_XX_base = self.kernel(self.X_train, self.X_train, params['lengthscale'], params['outputscale'])
-    #             K_XX_op = to_linear_operator(K_XX_base).add_jitter(JITTER)
-
-    #             approx_nll = self._calculate_approx_nll(f_hat_detached, params, K_XX_op)
-    #             log_prior = self._calculate_log_prior(params)
-                
-    #             loss_hyper = approx_nll - log_prior
-    #             loss_hyper.backward()
-    #             optimizer_hyper.step()
-
-    #             fit_end_time = time.time()
-
-    #             # --- Store history for this epoch ---
-    #             history['elbo'].append(approx_nll.item())
-    #             history['log_prior'].append(log_prior.item())
-    #             history['loss'].append(loss_hyper.item())
-    #             history['hyperparams'].append({k: v.detach().cpu().numpy() for k, v in self._get_hyperparams().items()})
-    #             history['fit_times'].append(fit_end_time - fit_start_time)
-
-    #             if (epoch + 1) % 10 == 0:
-    #                 logging.info(f"Epoch {epoch+1:4d}/{epochs} | Fit Time: {fit_end_time - fit_start_time:.3f}s | NLL: {approx_nll.item():.3f} | Loss: {loss_hyper.item():.3f}")
-    #         else:
-    #             # If no hyperparams to optimize, just log time
-    #             fit_end_time = time.time()
-    #             history['fit_times'].append(fit_end_time - fit_start_time)
-
-
-    #         # --- Evaluation Step ---
-    #         if X_test is not None and y_test is not None and (epoch + 1) % eval_interval == 0:
-    #             metrics = self._evaluate(X_test, y_test)
-    #             history['eval_epochs'].append(epoch + 1)
-    #             history['eval_metrics'].append(metrics)
-    #             logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f}")
-
-    #     logging.info("Training finished.")
-    #     return history
-
     def fit(
         self, 
         epochs=100, 
@@ -371,15 +265,49 @@ class TangTPR(nn.Module):
                 metrics = self._evaluate(X_test, y_test)
                 history['eval_epochs'].append(epoch + 1)
                 history['eval_metrics'].append(metrics)
-                logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f}")
+                logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f} | Test NLL: {metrics['nll']:.4f}")
 
         logging.info("Training finished.")
         return history
 
+    # def predict(self, X_test):
+    #     """
+    #     Computes the predictive mean for new data X_test using formula (20).
+    #     Returns the mean of the predictive distribution.
+    #     """
+    #     self.eval()
+    #     X_test = torch.as_tensor(X_test, dtype=self.X_train.dtype, device=self.device)
+    #     if X_test.ndim == 1: X_test = X_test.unsqueeze(1)
+        
+    #     with torch.no_grad():
+    #         params = self._get_hyperparams()
+    #         K_XX_base = self.kernel(self.X_train, self.X_train, params['lengthscale'], params['outputscale'])
+    #         K_XX_op = to_linear_operator(K_XX_base).add_jitter(JITTER)
+            
+    #         K_star_X = self.kernel(X_test, self.X_train, params['lengthscale'], params['outputscale'])
+            
+    #         # Predictive mean: k*^T K_inv f_hat
+    #         K_inv_f_hat = K_XX_op.solve(self.f_hat)
+    #         mu_pred = K_star_X @ K_inv_f_hat
+            
+    #     self.train()
+    #     return mu_pred.cpu().numpy()
+
+    # def _evaluate(self, X_test, y_test):
+    #     """Evaluates the model on test data and returns a dictionary of metrics."""
+    #     mu_pred = self.predict(X_test)
+    #     y_true = y_test.cpu().numpy().squeeze()
+    #     rmse = np.sqrt(mean_squared_error(y_true, mu_pred))
+    #     return {'rmse': rmse}
+
     def predict(self, X_test):
         """
-        Computes the predictive mean for new data X_test using formula (20).
-        Returns the mean of the predictive distribution.
+        Computes the predictive distribution parameters for new data X_test.
+        Approximates the posterior as Gaussian N(f_hat, A^-1) via Laplace approximation.
+        
+        Returns:
+            dict: Parameters of the predictive distribution of the latent function f*.
+                  {'loc_latent': ..., 'scale_sq_latent': ..., 'df_noise': ..., 'scale_noise': ...}
         """
         self.eval()
         X_test = torch.as_tensor(X_test, dtype=self.X_train.dtype, device=self.device)
@@ -387,21 +315,97 @@ class TangTPR(nn.Module):
         
         with torch.no_grad():
             params = self._get_hyperparams()
+            
+            # 1. Compute Kernels
             K_XX_base = self.kernel(self.X_train, self.X_train, params['lengthscale'], params['outputscale'])
             K_XX_op = to_linear_operator(K_XX_base).add_jitter(JITTER)
-            
             K_star_X = self.kernel(X_test, self.X_train, params['lengthscale'], params['outputscale'])
-            
-            # Predictive mean: k*^T K_inv f_hat
+            K_star_star = self.kernel(X_test, X_test, params['lengthscale'], params['outputscale'])
+            K_star_star_diag = K_star_star.diag()
+
+            # 2. Compute Predictive Mean: mu_* = k_*^T K^-1 f_hat
+            # K_inv_f_hat = K^-1 @ f_hat
             K_inv_f_hat = K_XX_op.solve(self.f_hat)
             mu_pred = K_star_X @ K_inv_f_hat
             
-        self.train()
-        return mu_pred.cpu().numpy()
+            # 3. Compute Predictive Variance using Laplace Approximation
+            # var_* = k_** - k_*X K^-1 k_X* + k_*X K^-1 Sigma_post K^-1 k_X*
+            # where Sigma_post = A^-1 (Inverse Hessian of neg log posterior)
+            
+            # Re-calculate Hessian A at f_hat
+            # Note: This can be expensive O(N^2) or O(N^3). 
+            # For exact comparison with baselines, we compute it.
+            def func_to_hess(f_vec):
+                return self._calculate_ln_Q(f_vec.view(-1, 1), params, K_XX_op)
+            
+            # Hessian A of -ln p(f|y)
+            A = torch.autograd.functional.hessian(func_to_hess, self.f_hat.flatten())
+            A_stable = A + torch.eye(self.N, device=self.device) * JITTER
+            
+            # Compute term: K^-1 k_X* (which is (k_*X K^-1)^T)
+            # Let v = K^-1 k_X*^T  => v = K_XX_op.solve(K_star_X.T)
+            v = K_XX_op.solve(K_star_X.T) # Shape (N, N_test)
+            
+            # Term 1: k_** - k_*X K^-1 k_X*
+            #       = k_** - k_*X @ v
+            term1 = K_star_star_diag - (K_star_X * v.T).sum(dim=1)
+            
+            # Term 2: k_*X K^-1 A^-1 K^-1 k_X*^T
+            #       = v^T A^-1 v
+            # Solve A w = v  => w = A^-1 v
+            # Using torch.linalg.solve for stability
+            w = torch.linalg.solve(A_stable, v) # Shape (N, N_test)
+            
+            # v^T w
+            term2 = (v * w).sum(dim=0) # Shape (N_test,)
+            
+            var_pred = term1 + term2
+            
+            return {
+                'loc_latent': mu_pred.squeeze(),
+                'scale_sq_latent': var_pred.clamp(min=EPSILON),
+                'df_noise': params['dof_lik'],
+                'scale_noise': params['noisescale']
+            }
 
-    def _evaluate(self, X_test, y_test):
-        """Evaluates the model on test data and returns a dictionary of metrics."""
-        mu_pred = self.predict(X_test)
-        y_true = y_test.cpu().numpy().squeeze()
-        rmse = np.sqrt(mean_squared_error(y_true, mu_pred))
-        return {'rmse': rmse}
+    def _evaluate(self, X_test, y_test, num_samples=1000):
+        """
+        Evaluates the model using RMSE and MC-based PNLL.
+        """
+        preds = self.predict(X_test)
+        y_true = torch.as_tensor(y_test, device=self.device).squeeze()
+        
+        # --- MC Sampling for PNLL ---
+        # 1. Sample latent f* from Gaussian posterior predictive
+        # f* ~ N(mu_*, var_*)
+        # Since predict returns diagonal variance, we sample independently per point
+        # (Sufficient for independent NLL calculation)
+        std_latent = torch.sqrt(preds['scale_sq_latent'])
+        
+        # dist_f shape: (N_test,)
+        # We want samples of shape (N_test, num_samples)
+        # Reparameterization: f = mu + std * epsilon
+        epsilon = torch.randn(len(y_true), num_samples, device=self.device)
+        f_samples = preds['loc_latent'].unsqueeze(1) + std_latent.unsqueeze(1) * epsilon
+        
+        # 2. Calculate log likelihood p(y | f*)
+        # y ~ StudentT(df_lik, f_samples, scale_lik)
+        dist_y = torch.distributions.StudentT(
+            df=preds['df_noise'],
+            loc=f_samples, 
+            scale=preds['scale_noise']
+        )
+        
+        # log_prob shape: (N_test, num_samples)
+        log_probs = dist_y.log_prob(y_true.unsqueeze(1))
+        
+        # 3. Monte Carlo Integration
+        log_predictive_likelihood = torch.logsumexp(log_probs, dim=1) - np.log(num_samples)
+        nll = -torch.mean(log_predictive_likelihood).item()
+        
+        # --- RMSE ---
+        f_pred_mean = preds['loc_latent'].cpu().numpy()
+        y_true_np = y_true.cpu().numpy()
+        rmse = np.sqrt(mean_squared_error(y_true_np, f_pred_mean))
+        
+        return {'rmse': rmse, 'nll': nll}

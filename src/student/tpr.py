@@ -278,10 +278,47 @@ class TPR(nn.Module):
                 metrics = self._evaluate(X_test, y_test)
                 history['eval_epochs'].append(epoch + 1)
                 history['eval_metrics'].append(metrics)
-                logging.info(f"Epoch {epoch+1:4d}/{epochs} | Test RMSE: {metrics['rmse']:.4f}")
+                # logging.info(f"Epoch {epoch+1:4d}/{epochs} | Test RMSE: {metrics['rmse']:.4f}")
+                logging.info(f"Epoch {epoch+1:4d}/{epochs} | Test RMSE: {metrics['rmse']:.4f} | Test NLL: {metrics['nll']:.4f}")
 
         logging.info("Optimization finished.")
         return history
+
+    # def predict(self, X_test):
+    #     X_test = torch.as_tensor(X_test, dtype=self.X_full.dtype, device=self.device)
+    #     if X_test.ndim == 1: X_test = X_test.unsqueeze(1)
+            
+    #     self.eval()
+    #     with torch.no_grad():
+    #         params = self._get_hyperparams()
+    #         K_XX_base = to_linear_operator(self.kernel(self.X_full, self.X_full, params['lengthscale'], params['outputscale']))
+    #         K_XX_op = K_XX_base.add_jitter(JITTER)
+    #         K_star_X = self.kernel(X_test, self.X_full, params['lengthscale'], params['outputscale'])
+    #         k_star_star = self.kernel(X_test, X_test, params['lengthscale'], params['outputscale']).diag()
+
+    #         # Predictive Location (mean): mu_star = K_*X @ K_XX^-1 @ m_f
+    #         K_XX_inv_mf = K_XX_op.solve(self.m_f)
+    #         mu_star = K_star_X @ K_XX_inv_mf
+            
+    #         # Predictive Degrees of Freedom
+    #         dof_star = 2 * self.alpha_r
+            
+    #         # Predictive Scale
+    #         A = K_XX_op.solve(K_star_X.T).T
+            
+    #         term1 = k_star_star - torch.sum(A * K_star_X, dim=1)
+    #         term2 = torch.sum((A @ self.S_f) * A, dim=1)
+    #         scale_sq_star_f = ((self.beta_r / self.alpha_r).clamp(min=EPSILON)) * (term1 + term2)
+            
+    #         dof_lik = params['dof_lik']
+    #         noise_var = params['noisescale']
+    #         expected_noise_var = noise_var * dof_lik / (dof_lik - 2).clamp(min=EPSILON)
+            
+    #         return {
+    #             'loc': mu_star.squeeze(), 
+    #             'scale_sq': (scale_sq_star_f + expected_noise_var).clamp(min=EPSILON), 
+    #             'dof': dof_star.clamp(min=EPSILON)
+    #         }
 
     def predict(self, X_test):
         X_test = torch.as_tensor(X_test, dtype=self.X_full.dtype, device=self.device)
@@ -295,36 +332,78 @@ class TPR(nn.Module):
             K_star_X = self.kernel(X_test, self.X_full, params['lengthscale'], params['outputscale'])
             k_star_star = self.kernel(X_test, X_test, params['lengthscale'], params['outputscale']).diag()
 
-            # Predictive Location (mean): mu_star = K_*X @ K_XX^-1 @ m_f
+            # Predictive Location (mean)
             K_XX_inv_mf = K_XX_op.solve(self.m_f)
             mu_star = K_star_X @ K_XX_inv_mf
             
             # Predictive Degrees of Freedom
             dof_star = 2 * self.alpha_r
             
-            # Predictive Scale
+            # Predictive Scale (Latent function f*)
             A = K_XX_op.solve(K_star_X.T).T
-            
             term1 = k_star_star - torch.sum(A * K_star_X, dim=1)
             term2 = torch.sum((A @ self.S_f) * A, dim=1)
             scale_sq_star_f = ((self.beta_r / self.alpha_r).clamp(min=EPSILON)) * (term1 + term2)
             
-            dof_lik = params['dof_lik']
-            noise_var = params['noisescale']
-            expected_noise_var = noise_var * dof_lik / (dof_lik - 2).clamp(min=EPSILON)
-            
+            # --- Modify ---
             return {
                 'loc': mu_star.squeeze(), 
-                'scale_sq': (scale_sq_star_f + expected_noise_var).clamp(min=EPSILON), 
-                'dof': dof_star.clamp(min=EPSILON)
+                'dof_latent': dof_star.clamp(min=EPSILON),
+                'scale_sq_latent': scale_sq_star_f.clamp(min=EPSILON),
+                'dof_noise': params['dof_lik'],
+                'scale_noise': params['noisescale'] 
             }
 
-    def _evaluate(self, X_test, y_test):
-        f_pred_tensor = self.predict(X_test)
-        f_pred_numpy = f_pred_tensor['loc'].cpu().numpy()
-        y_true_numpy = y_test.cpu().numpy().squeeze()
-        metrics = {'rmse': np.sqrt(mean_squared_error(y_true_numpy, f_pred_numpy))}
-        return metrics
+    # def _evaluate(self, X_test, y_test):
+    #     f_pred_tensor = self.predict(X_test)
+    #     f_pred_numpy = f_pred_tensor['loc'].cpu().numpy()
+    #     y_true_numpy = y_test.cpu().numpy().squeeze()
+    #     metrics = {'rmse': np.sqrt(mean_squared_error(y_true_numpy, f_pred_numpy))}
+    #     return metrics
+
+    def _evaluate(self, X_test, y_test, n_samples=1000):
+        # 予測分布のパラメータを取得
+        preds = self.predict(X_test)
+        
+        # Tensor型で計算するため、y_testもTensorであることを保証
+        y_true = torch.as_tensor(y_test, device=self.device).squeeze()
+        
+        # --- MCサンプリングによる PNLL 計算 ---
+        # 1. 潜在関数 f* ~ StudentT(nu_*, mu_*, scale_*) からサンプリング
+        # PyTorchのStudentTは scale (sqrt(variance)) を引数に取るため sqrt する
+        dist_f = torch.distributions.StudentT(
+            df=preds['dof_latent'], 
+            loc=preds['loc'], 
+            scale=torch.sqrt(preds['scale_sq_latent'])
+        )
+        
+        # f_samples shape: (n_samples, N_test)
+        f_samples = dist_f.sample((n_samples,))
+        
+        # 2. 各サンプルに対する観測尤度 p(y | f_sample) を計算
+        # y ~ StudentT(nu_lik, f_sample, scale_lik)
+        dist_y = torch.distributions.StudentT(
+            df=preds['dof_noise'],
+            loc=f_samples,
+            scale=torch.sqrt(preds['scale_noise'])
+        )
+        
+        # log_prob shape: (n_samples, N_test)
+        log_probs = dist_y.log_prob(y_true)
+        
+        # 3. モンテカルロ積分: log( (1/S) * sum( exp(log_prob) ) )
+        # LogSumExp trickを使って安定計算: logsumexp - log(S)
+        log_predictive_likelihood = torch.logsumexp(log_probs, dim=0) - np.log(n_samples)
+        
+        # 平均PNLL
+        nll = -torch.mean(log_predictive_likelihood).item()
+        
+        # RMSE計算 (平均予測値を使用)
+        f_pred_mean = preds['loc'].cpu().numpy()
+        y_true_np = y_true.cpu().numpy()
+        rmse = np.sqrt(mean_squared_error(y_true_np, f_pred_mean))
+        
+        return {'rmse': rmse, 'nll': nll}
 
 
 

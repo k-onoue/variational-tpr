@@ -166,7 +166,7 @@ class GPR(nn.Module):
                 metrics = self._evaluate(X_test, y_test)
                 history['eval_epochs'].append(epoch + 1)
                 history['eval_metrics'].append(metrics)
-                logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f}")
+                logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f} | Test NLL: {metrics['nll']:.4f}")
 
         logging.info("Training finished.")
         return history
@@ -200,11 +200,33 @@ class GPR(nn.Module):
 
         return predictive_mean_np, predictive_var_np
 
+    # def _evaluate(self, X_test, y_test):
+    #     mu_pred, _ = self.predict(X_test)
+    #     y_true = y_test.cpu().numpy().squeeze()
+    #     rmse = np.sqrt(mean_squared_error(y_true, mu_pred))
+    #     return {'rmse': rmse}
+
     def _evaluate(self, X_test, y_test):
-        mu_pred, _ = self.predict(X_test)
+        mu_pred, var_pred = self.predict(X_test)
         y_true = y_test.cpu().numpy().squeeze()
+        
+        # --- RMSE Calculation ---
         rmse = np.sqrt(mean_squared_error(y_true, mu_pred))
-        return {'rmse': rmse}
+        
+        # --- PNLL Calculation (Analytical Gaussian NLL) ---
+        # NLL = 0.5 * log(2*pi*sigma^2) + 0.5 * (y - mu)^2 / sigma^2
+        # Note: var_pred is predictive variance (sigma^2)
+        # We clamp variance to avoid log(0) or division by zero
+        var_pred_clamped = np.maximum(var_pred, 1e-9)
+        
+        nll_term = 0.5 * np.log(2 * np.pi * var_pred_clamped) + \
+                   0.5 * (y_true - mu_pred)**2 / var_pred_clamped
+        
+        nll = np.mean(nll_term)
+        
+        return {'rmse': rmse, 'nll': nll}
+
+
 
 
 class SparseGPR(nn.Module):

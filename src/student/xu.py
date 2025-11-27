@@ -237,14 +237,58 @@ class XuTPR(nn.Module):
         logging.info("Training finished.")
         return history
 
+    # def predict(self, X_test, num_samples=1000):
+    #     """Generates samples from the predictive distribution q(f*)."""
+    #     self.eval()
+    #     X_test = torch.as_tensor(X_test, dtype=self.X_train.dtype, device=self.device)
+    #     if X_test.ndim == 1: X_test = X_test.unsqueeze(1)
+        
+    #     with torch.no_grad():
+    #         params = self._get_hyperparams()
+    #         f_samples_posterior = sample_mvt(self.m, self.chol_S, params['dof_q'], num_samples)
+            
+    #         K_XX_base = self.kernel(self.X_train, self.X_train, params['lengthscale'], params['outputscale'])
+    #         K_XX_op = to_linear_operator(K_XX_base).add_jitter(JITTER)
+    #         K_star_X = self.kernel(X_test, self.X_train, params['lengthscale'], params['outputscale'])
+    #         k_star_star_diag = self.kernel(X_test, X_test, params['lengthscale'], params['outputscale']).diag()
+
+    #         K_inv_f_samples = K_XX_op.solve(f_samples_posterior)
+    #         predictive_loc_per_sample = K_star_X @ K_inv_f_samples
+    #         beta_per_sample = (f_samples_posterior * K_inv_f_samples).sum(0)
+    #         dof_pred = params['dof_func'] + self.N
+            
+    #         K_star_X_K_inv = K_XX_op.solve(K_star_X.T).T
+    #         term2 = (K_star_X_K_inv * K_star_X).sum(1)
+            
+    #         scale_factor = (params['dof_func'] + beta_per_sample) / dof_pred
+    #         scale_base = k_star_star_diag - term2
+    #         predictive_scale_sq_per_sample = scale_base.unsqueeze(1) * scale_factor.unsqueeze(0)
+            
+    #         pred_dist = torch.distributions.StudentT(
+    #             df=dof_pred,
+    #             loc=predictive_loc_per_sample,
+    #             scale=torch.sqrt(predictive_scale_sq_per_sample.clamp(min=EPSILON))
+    #         )
+    #         predictive_samples = pred_dist.sample()
+            
+    #     self.train()
+    #     return predictive_samples.cpu().numpy()
+
     def predict(self, X_test, num_samples=1000):
-        """Generates samples from the predictive distribution q(f*)."""
+        """
+        Returns parameters of the predictive distribution q(f*) approx.
+        Instead of returning samples directly, we return the distribution parameters 
+        to allow for accurate PNLL calculation.
+        """
         self.eval()
         X_test = torch.as_tensor(X_test, dtype=self.X_train.dtype, device=self.device)
         if X_test.ndim == 1: X_test = X_test.unsqueeze(1)
         
         with torch.no_grad():
             params = self._get_hyperparams()
+            
+            # Posterior f samples: (N_train, num_samples)
+            # q(f) ~ StudentT(m, S, nu_q)
             f_samples_posterior = sample_mvt(self.m, self.chol_S, params['dof_q'], num_samples)
             
             K_XX_base = self.kernel(self.X_train, self.X_train, params['lengthscale'], params['outputscale'])
@@ -252,36 +296,95 @@ class XuTPR(nn.Module):
             K_star_X = self.kernel(X_test, self.X_train, params['lengthscale'], params['outputscale'])
             k_star_star_diag = self.kernel(X_test, X_test, params['lengthscale'], params['outputscale']).diag()
 
+            # K_XX^-1 @ f_samples
             K_inv_f_samples = K_XX_op.solve(f_samples_posterior)
+            
+            # Predictive Mean per sample: (N_test, num_samples)
             predictive_loc_per_sample = K_star_X @ K_inv_f_samples
-            beta_per_sample = (f_samples_posterior * K_inv_f_samples).sum(0)
+            
+            # Beta term per sample: f^T K^-1 f
+            beta_per_sample = (f_samples_posterior * K_inv_f_samples).sum(0) # (num_samples,)
+            
+            # Predictive DOF
             dof_pred = params['dof_func'] + self.N
             
+            # Predictive Variance calculation
             K_star_X_K_inv = K_XX_op.solve(K_star_X.T).T
-            term2 = (K_star_X_K_inv * K_star_X).sum(1)
-            
-            scale_factor = (params['dof_func'] + beta_per_sample) / dof_pred
+            term2 = (K_star_X_K_inv * K_star_X).sum(1) # (N_test,)
             scale_base = k_star_star_diag - term2
+            
+            # Scale factor for Student-t
+            scale_factor = (params['dof_func'] + beta_per_sample) / dof_pred # (num_samples,)
+            
+            # Predictive Scale Squared: (N_test, num_samples)
             predictive_scale_sq_per_sample = scale_base.unsqueeze(1) * scale_factor.unsqueeze(0)
             
-            pred_dist = torch.distributions.StudentT(
-                df=dof_pred,
-                loc=predictive_loc_per_sample,
-                scale=torch.sqrt(predictive_scale_sq_per_sample.clamp(min=EPSILON))
-            )
-            predictive_samples = pred_dist.sample()
-            
-        self.train()
-        return predictive_samples.cpu().numpy()
+            # Return distribution parameters
+            return {
+                'df_latent': dof_pred, # Scalar
+                'loc_latent': predictive_loc_per_sample, # (N_test, num_samples)
+                'scale_latent': torch.sqrt(predictive_scale_sq_per_sample.clamp(min=EPSILON)), # (N_test, num_samples)
+                'df_noise': params['dof_lik'],
+                'scale_noise': params['noisescale']
+            }
+
+    # def _evaluate(self, X_test, y_test, num_samples=1000):
+    #     """Evaluates the model on test data and returns a dictionary of metrics."""
+    #     predictive_samples = self.predict(X_test, num_samples=num_samples)
+    #     mu_pred = np.mean(predictive_samples, axis=1)
+    #     y_true = y_test.cpu().numpy().squeeze()
+
+    #     rmse = np.sqrt(mean_squared_error(y_true, mu_pred))
+    #     return {'rmse': rmse}
 
     def _evaluate(self, X_test, y_test, num_samples=1000):
-        """Evaluates the model on test data and returns a dictionary of metrics."""
-        predictive_samples = self.predict(X_test, num_samples=num_samples)
-        mu_pred = np.mean(predictive_samples, axis=1)
-        y_true = y_test.cpu().numpy().squeeze()
+        """Evaluates the model on test data using PNLL and RMSE."""
+        # Get predictive distribution parameters
+        preds = self.predict(X_test, num_samples=num_samples)
+        y_true = torch.as_tensor(y_test, device=self.device).squeeze()
+        
+        # --- MC Sampling for PNLL ---
+        # 1. Sample latent function f* from the predictive distribution
+        # f* ~ StudentT(df_pred, loc_pred, scale_pred)
+        # Note: loc and scale already have shape (N_test, num_samples)
+        # We sample ONE f* for each of the num_samples configurations
+        dist_f = torch.distributions.StudentT(
+            df=preds['df_latent'],
+            loc=preds['loc_latent'],
+            scale=preds['scale_latent']
+        )
+        f_samples = dist_f.sample() # (N_test, num_samples)
 
-        rmse = np.sqrt(mean_squared_error(y_true, mu_pred))
-        return {'rmse': rmse}
+        # 2. Calculate log likelihood p(y | f*)
+        # y ~ StudentT(df_lik, f*, scale_lik)
+        dist_y = torch.distributions.StudentT(
+            df=preds['df_noise'],
+            loc=f_samples, # Broadcasting over num_samples
+            scale=preds['scale_noise'] # Scalar
+        )
+        
+        # log_prob shape: (N_test, num_samples)
+        # y_true needs to be broadcast to (N_test, num_samples)
+        log_probs = dist_y.log_prob(y_true.unsqueeze(1))
+        
+        # 3. Monte Carlo Integration: log( (1/S) * sum( exp(log_prob) ) )
+        # Average over the 'num_samples' dimension (dim=1)
+        log_predictive_likelihood = torch.logsumexp(log_probs, dim=1) - np.log(num_samples)
+        
+        # Mean PNLL over test points
+        nll = -torch.mean(log_predictive_likelihood).item()
+        
+        # --- RMSE Calculation ---
+        # Use the mean of the latent function samples as point prediction
+        f_pred_mean = preds['loc_latent'].mean(dim=1).cpu().numpy()
+        y_true_np = y_true.cpu().numpy()
+        rmse = np.sqrt(mean_squared_error(y_true_np, f_pred_mean))
+        
+        return {'rmse': rmse, 'nll': nll}
+
+
+
+
 
 
 class XuSparseTPR(nn.Module):
