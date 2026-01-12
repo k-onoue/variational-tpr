@@ -138,7 +138,7 @@ if __name__ == "__main__":
                 'Bike', 'Concrete', 'Concrete_Outliers', 'Elevators',
                 'Energy', 'Kin8nm', 'Kin8nm_Outliers', 'Protein'
             ],
-            'num_splits': 5,
+            'num_splits': 10,
         },
         "device": "cuda" if torch.cuda.is_available() else "cpu",
         "models": {
@@ -185,7 +185,7 @@ if __name__ == "__main__":
                     "eval_interval": 1,
                     "batch_size": 1024,
                     "hyper_lr": 0.01,
-                    "var_lr": 0.1,
+                    "var_lr": 0.01,
                 },
                 "hyper_settings": {
                     "lengthscale": {"optim": "MAP"},

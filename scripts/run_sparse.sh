@@ -2,8 +2,7 @@
 
 # --- Configuration ---
 # List of models to run
-# MODEL_NAMES=("SparseGPR" "SparseTPR" "XuSparseTPR")
-MODEL_NAMES=("SparseGPR" "SparseTPR" "XuSparseTPR") # For quick testing, use only one model
+MODEL_NAMES=("SparseGPR" "SparseTPR" "XuSparseTPR") 
 
 # Path to the Python script to be executed
 PYTHON_SCRIPT="experiments/sparse_v6.py" # Make sure this filename is correct
@@ -15,17 +14,7 @@ DATASETS=(
     'Taxi_Outliers' 'Energy_Outliers' 'Kin8nm_Outliers' 'Protein_Outliers' 
     'Bike_Outliers' 'Concrete_Outliers' 'Elevators_Outliers'
 )
-# DATASETS=(
-#     'Energy' 'Kin8nm'
-#     'Bike' 'Concrete' 'Elevators'
-#     'Energy_Outliers' 'Kin8nm_Outliers'
-#     'Bike_Outliers' 'Concrete_Outliers' 'Elevators_Outliers'
-# )
-# DATASETS=(
-#     'Taxi'
-#     'Taxi_Outliers'
-# )
-NUM_SPLITS=5
+NUM_SPLITS=10
 NUM_DATASETS=${#DATASETS[@]}
 TOTAL_JOBS=$((NUM_DATASETS * NUM_SPLITS - 1)) # Job array indices are 0-based, so subtract 1
 

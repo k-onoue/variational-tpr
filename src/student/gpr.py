@@ -564,7 +564,12 @@ class SparseGPR(nn.Module):
         with torch.no_grad():
             pred_dict = self.predict(X_test)
             pred_mean = pred_dict['loc']
+            pred_var = pred_dict['variance']
             y_true = y_test.cpu().view(-1)
             rmse = torch.sqrt(torch.mean((y_true - pred_mean)**2)).item()
+
+            pred_var_clamped = pred_var.clamp(min=1e-9)
+            nll_term = 0.5 * torch.log(2 * torch.pi * pred_var_clamped) + 0.5 * (y_true - pred_mean) ** 2 / pred_var_clamped
+            nll = torch.mean(nll_term).item()
         self.train()
-        return {'rmse': rmse}
+        return {'rmse': rmse, 'nll': nll}

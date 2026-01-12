@@ -753,7 +753,7 @@ class SparseTPR(nn.Module):
                 epoch_results.update(metrics) # Add RMSE etc. to the results dict
                 logging.info(
                     f"Epoch {epoch+1:3d}/{epochs} | Test Metrics: "
-                    f"RMSE: {metrics['rmse']:.3f}"
+                    f"RMSE: {metrics['rmse']:.3f} | NLL: {metrics['nll']:.3f}"
                 )
 
             yield epoch_results
@@ -899,20 +899,39 @@ class SparseTPR(nn.Module):
                 'dof': dof_star.clamp(min=EPSILON)
             }
 
-    def _evaluate(self, X_test, y_test):
+    def _evaluate(self, X_test, y_test, n_samples=1000):
         """Evaluates the model on test data and returns a dictionary of metrics."""
         self.eval()
         with torch.no_grad():
-            f_pred_tensor = self.predict(X_test)
-            f_pred_numpy = f_pred_tensor['loc'].cpu().numpy()
-            y_true_numpy = y_test.cpu().numpy()
+            params = self._get_hyperparams()
+            preds = self.predict(X_test)
 
-            # metrics = {
-            #     'rmse': np.sqrt(np.mean((y_true_numpy - f_pred_numpy)**2))
-            # }
-            metrics = {
-                'rmse': np.sqrt(mean_squared_error(y_true_numpy, f_pred_numpy))
-            }
+            y_true = torch.as_tensor(y_test, device=self.device).squeeze()
+
+            # --- MC PNLL ---
+            # 1) Sample latent f* ~ StudentT(dof, loc, sqrt(scale_sq))
+            dist_f = torch.distributions.StudentT(
+                df=preds['dof'],
+                loc=preds['loc'],
+                scale=torch.sqrt(preds['scale_sq'])
+            )
+            f_samples = dist_f.sample((n_samples,))  # (n_samples, N_test)
+
+            # 2) Likelihood: y | f* ~ StudentT(dof_lik, f*, sqrt(noise_var))
+            dist_y = torch.distributions.StudentT(
+                df=params['dof_lik'],
+                loc=f_samples,
+                scale=torch.sqrt(params['noisescale'])
+            )
+            log_probs = dist_y.log_prob(y_true)  # (n_samples, N_test)
+            log_predictive_likelihood = torch.logsumexp(log_probs, dim=0) - np.log(n_samples)
+            nll = -torch.mean(log_predictive_likelihood).item()
+
+            # --- RMSE ---
+            f_pred_mean = preds['loc'].detach().cpu().numpy()
+            y_true_np = y_true.detach().cpu().numpy()
+            rmse = np.sqrt(mean_squared_error(y_true_np, f_pred_mean))
+
         self.train()
-        return metrics
+        return {'rmse': rmse, 'nll': nll}
 

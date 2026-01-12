@@ -733,7 +733,7 @@ class XuSparseTPR(nn.Module):
             if X_test is not None and y_test is not None and (epoch + 1) % eval_interval == 0:
                 metrics = self._evaluate(X_test, y_test, num_samples=num_samples)
                 epoch_results.update(metrics) # Add RMSE to the results dict
-                logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f}")
+                logging.info(f"Epoch {epoch+1:4d} | Test RMSE: {metrics['rmse']:.4f} | Test NLL: {metrics['nll']:.4f}")
 
             yield epoch_results
 
@@ -792,6 +792,20 @@ class XuSparseTPR(nn.Module):
     def _evaluate(self, X_test, y_test, num_samples):
         predictive_samples = self.predict(X_test, num_samples=num_samples)
         mu_pred = np.mean(predictive_samples, axis=1)
-        y_true = y_test.cpu().numpy().squeeze()
-        rmse = np.sqrt(mean_squared_error(y_true, mu_pred))
-        return {'rmse': rmse}
+        y_true_np = y_test.cpu().numpy().squeeze()
+        rmse = np.sqrt(mean_squared_error(y_true_np, mu_pred))
+
+        with torch.no_grad():
+            params = self._get_hyperparams()
+            y_true = torch.as_tensor(y_test, device=self.device).squeeze()
+            f_samples = torch.as_tensor(predictive_samples, device=self.device, dtype=self.X_full.dtype)
+            dist_y = torch.distributions.StudentT(
+                df=params['dof_lik'],
+                loc=f_samples,
+                scale=params['noisescale']
+            )
+            log_probs = dist_y.log_prob(y_true.unsqueeze(1))
+            log_predictive_likelihood = torch.logsumexp(log_probs, dim=1) - np.log(num_samples)
+            nll = -torch.mean(log_predictive_likelihood).item()
+
+        return {'rmse': rmse, 'nll': nll}
