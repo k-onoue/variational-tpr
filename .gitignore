@@ -6,3 +6,4 @@ results*
 logs*
 notebooks
 *.egg-info
+*.tar.gz
