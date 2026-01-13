@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
     EXPERIMENT_CONFIG = {
         'data': {
-            'base_path': './datasets/dataset_combined_v2/',
+            'base_path': './datasets/dataset_combined/',
             'dataset_names': [
                 'Bike', 'Concrete', 'Concrete_Outliers', 'Elevators',
                 'Energy', 'Kin8nm', 'Kin8nm_Outliers', 'Protein'
