@@ -1,0 +1,451 @@
+Examining CSV files in results/20260113_002155/raw
+==========================================================================================================
+
+File                                               Model           Dataset              Split Epoch  RMSE         NLL         
+----------------------------------------------------------------------------------------------------------
+SparseGPR_Bike_Outliers_split0.csv                 SparseGPR       Bike_Outliers        0     1000   2.122133     387.988702  
+SparseGPR_Bike_Outliers_split1.csv                 SparseGPR       Bike_Outliers        1     1000   0.271546     1.616828    
+SparseGPR_Bike_Outliers_split2.csv                 SparseGPR       Bike_Outliers        2     1000   0.261381     1.343674    
+SparseGPR_Bike_Outliers_split3.csv                 SparseGPR       Bike_Outliers        3     1000   0.277443     1.545609    
+SparseGPR_Bike_Outliers_split4.csv                 SparseGPR       Bike_Outliers        4     1000   0.275750     1.758869    
+SparseGPR_Bike_Outliers_split5.csv                 SparseGPR       Bike_Outliers        5     1000   0.282558     1.854570    
+SparseGPR_Bike_Outliers_split6.csv                 SparseGPR       Bike_Outliers        6     1000   0.265153     1.384029    
+SparseGPR_Bike_Outliers_split7.csv                 SparseGPR       Bike_Outliers        7     1000   0.424589     13.067191   
+SparseGPR_Bike_Outliers_split8.csv                 SparseGPR       Bike_Outliers        8     1000   0.279590     1.776744    
+SparseGPR_Bike_Outliers_split9.csv                 SparseGPR       Bike_Outliers        9     1000   0.268960     1.525766    
+SparseGPR_Bike_split0.csv                          SparseGPR       Bike                 0     1000   0.226852     4.883201    
+SparseGPR_Bike_split1.csv                          SparseGPR       Bike                 1     1000   0.259067     4.193303    
+SparseGPR_Bike_split2.csv                          SparseGPR       Bike                 2     1000   0.224085     1.941352    
+SparseGPR_Bike_split3.csv                          SparseGPR       Bike                 3     1000   0.252390     5.336639    
+SparseGPR_Bike_split4.csv                          SparseGPR       Bike                 4     1000   0.252174     3.229360    
+SparseGPR_Bike_split5.csv                          SparseGPR       Bike                 5     1000   0.252690     3.330812    
+SparseGPR_Bike_split6.csv                          SparseGPR       Bike                 6     1000   0.231998     4.502318    
+SparseGPR_Bike_split7.csv                          SparseGPR       Bike                 7     1000   0.245373     3.061179    
+SparseGPR_Bike_split8.csv                          SparseGPR       Bike                 8     1000   0.250385     3.578346    
+SparseGPR_Bike_split9.csv                          SparseGPR       Bike                 9     1000   0.246578     3.226540    
+SparseGPR_Concrete_Outliers_split0.csv             SparseGPR       Concrete_Outliers    0     1000   2.138956     365.648915  
+SparseGPR_Concrete_Outliers_split1.csv             SparseGPR       Concrete_Outliers    1     1000   0.394478     1.046039    
+SparseGPR_Concrete_Outliers_split2.csv             SparseGPR       Concrete_Outliers    2     1000   0.527228     2.188265    
+SparseGPR_Concrete_Outliers_split3.csv             SparseGPR       Concrete_Outliers    3     1000   0.601851     2.222049    
+SparseGPR_Concrete_Outliers_split4.csv             SparseGPR       Concrete_Outliers    4     1000   0.490158     2.686810    
+SparseGPR_Concrete_Outliers_split5.csv             SparseGPR       Concrete_Outliers    5     1000   0.317168     0.454526    
+SparseGPR_Concrete_Outliers_split6.csv             SparseGPR       Concrete_Outliers    6     1000   0.400344     1.107449    
+SparseGPR_Concrete_Outliers_split7.csv             SparseGPR       Concrete_Outliers    7     1000   0.370953     0.641903    
+SparseGPR_Concrete_Outliers_split8.csv             SparseGPR       Concrete_Outliers    8     1000   0.464138     1.706934    
+SparseGPR_Concrete_Outliers_split9.csv             SparseGPR       Concrete_Outliers    9     1000   0.546542     3.790395    
+SparseGPR_Concrete_split0.csv                      SparseGPR       Concrete             0     1000   0.351185     0.976174    
+SparseGPR_Concrete_split1.csv                      SparseGPR       Concrete             1     1000   0.280579     2.475501    
+SparseGPR_Concrete_split2.csv                      SparseGPR       Concrete             2     1000   0.315362     0.509588    
+SparseGPR_Concrete_split3.csv                      SparseGPR       Concrete             3     1000   0.363632     0.747326    
+SparseGPR_Concrete_split4.csv                      SparseGPR       Concrete             4     1000   0.432355     2.346782    
+SparseGPR_Concrete_split5.csv                      SparseGPR       Concrete             5     1000   0.243256     0.744978    
+SparseGPR_Concrete_split6.csv                      SparseGPR       Concrete             6     1000   0.268241     4.641246    
+SparseGPR_Concrete_split7.csv                      SparseGPR       Concrete             7     1000   0.319525     0.927935    
+SparseGPR_Concrete_split8.csv                      SparseGPR       Concrete             8     1000   0.332252     0.490203    
+SparseGPR_Concrete_split9.csv                      SparseGPR       Concrete             9     1000   0.277061     0.641935    
+SparseGPR_Elevators_Outliers_split0.csv            SparseGPR       Elevators_Outliers   0     1000   2.121806     3859.078309 
+SparseGPR_Elevators_Outliers_split1.csv            SparseGPR       Elevators_Outliers   1     1000   0.303209     9.131969    
+SparseGPR_Elevators_Outliers_split2.csv            SparseGPR       Elevators_Outliers   2     1000   0.295228     8.737931    
+SparseGPR_Elevators_Outliers_split3.csv            SparseGPR       Elevators_Outliers   3     1000   0.298264     9.708852    
+SparseGPR_Elevators_Outliers_split4.csv            SparseGPR       Elevators_Outliers   4     1000   0.301547     8.503123    
+SparseGPR_Elevators_Outliers_split5.csv            SparseGPR       Elevators_Outliers   5     1000   0.292251     8.983815    
+SparseGPR_Elevators_Outliers_split6.csv            SparseGPR       Elevators_Outliers   6     1000   0.302924     9.339822    
+SparseGPR_Elevators_Outliers_split7.csv            SparseGPR       Elevators_Outliers   7     1000   0.308446     9.863648    
+SparseGPR_Elevators_Outliers_split8.csv            SparseGPR       Elevators_Outliers   8     1000   0.303056     8.613820    
+SparseGPR_Elevators_Outliers_split9.csv            SparseGPR       Elevators_Outliers   9     1000   0.290111     8.389983    
+SparseGPR_Elevators_split0.csv                     SparseGPR       Elevators            0     1000   0.279950     55.083745   
+SparseGPR_Elevators_split1.csv                     SparseGPR       Elevators            1     1000   0.307342     23.209225   
+SparseGPR_Elevators_split2.csv                     SparseGPR       Elevators            2     1000   0.285408     53.441351   
+SparseGPR_Elevators_split3.csv                     SparseGPR       Elevators            3     1000   0.292446     20.527747   
+SparseGPR_Elevators_split4.csv                     SparseGPR       Elevators            4     1000   0.303097     22.898350   
+SparseGPR_Elevators_split5.csv                     SparseGPR       Elevators            5     1000   0.295120     21.547578   
+SparseGPR_Elevators_split6.csv                     SparseGPR       Elevators            6     1000   0.319059     25.282562   
+SparseGPR_Elevators_split7.csv                     SparseGPR       Elevators            7     1000   0.305520     21.838682   
+SparseGPR_Elevators_split8.csv                     SparseGPR       Elevators            8     1000   0.300963     18.850101   
+SparseGPR_Elevators_split9.csv                     SparseGPR       Elevators            9     1000   0.289266     22.090131   
+SparseGPR_Energy_Outliers_split0.csv               SparseGPR       Energy_Outliers      0     1000   2.124496     455.076503  
+SparseGPR_Energy_Outliers_split1.csv               SparseGPR       Energy_Outliers      1     1000   0.321172     0.346485    
+SparseGPR_Energy_Outliers_split2.csv               SparseGPR       Energy_Outliers      2     1000   0.504487     2.381228    
+SparseGPR_Energy_Outliers_split3.csv               SparseGPR       Energy_Outliers      3     1000   0.451927     0.803201    
+SparseGPR_Energy_Outliers_split4.csv               SparseGPR       Energy_Outliers      4     1000   0.328705     0.353941    
+SparseGPR_Energy_Outliers_split5.csv               SparseGPR       Energy_Outliers      5     1000   0.465195     1.191441    
+SparseGPR_Energy_Outliers_split6.csv               SparseGPR       Energy_Outliers      6     1000   0.634071     2.164748    
+SparseGPR_Energy_Outliers_split7.csv               SparseGPR       Energy_Outliers      7     1000   0.265945     0.167955    
+SparseGPR_Energy_Outliers_split8.csv               SparseGPR       Energy_Outliers      8     1000   0.378710     0.656736    
+SparseGPR_Energy_Outliers_split9.csv               SparseGPR       Energy_Outliers      9     1000   0.631058     2.924441    
+SparseGPR_Energy_split0.csv                        SparseGPR       Energy               0     1000   0.127290     -0.933649   
+SparseGPR_Energy_split1.csv                        SparseGPR       Energy               1     1000   0.094500     -0.505472   
+SparseGPR_Energy_split2.csv                        SparseGPR       Energy               2     1000   0.048996     -0.798880   
+SparseGPR_Energy_split3.csv                        SparseGPR       Energy               3     1000   0.087322     -1.134692   
+SparseGPR_Energy_split4.csv                        SparseGPR       Energy               4     1000   0.054979     -1.523121   
+SparseGPR_Energy_split5.csv                        SparseGPR       Energy               5     1000   0.046141     -1.281323   
+SparseGPR_Energy_split6.csv                        SparseGPR       Energy               6     1000   0.131521     -0.349115   
+SparseGPR_Energy_split7.csv                        SparseGPR       Energy               7     1000   0.096493     -0.837403   
+SparseGPR_Energy_split8.csv                        SparseGPR       Energy               8     1000   0.065122     -0.810854   
+SparseGPR_Energy_split9.csv                        SparseGPR       Energy               9     1000   0.046665     -0.944592   
+SparseGPR_Kin8nm_Outliers_split0.csv               SparseGPR       Kin8nm_Outliers      0     1000   2.142912     316.907240  
+SparseGPR_Kin8nm_Outliers_split1.csv               SparseGPR       Kin8nm_Outliers      1     1000   0.471647     12.421822   
+SparseGPR_Kin8nm_Outliers_split2.csv               SparseGPR       Kin8nm_Outliers      2     1000   0.315769     1.509326    
+SparseGPR_Kin8nm_Outliers_split3.csv               SparseGPR       Kin8nm_Outliers      3     1000   0.333407     1.995814    
+SparseGPR_Kin8nm_Outliers_split4.csv               SparseGPR       Kin8nm_Outliers      4     1000   0.347870     4.751684    
+SparseGPR_Kin8nm_Outliers_split5.csv               SparseGPR       Kin8nm_Outliers      5     1000   0.327308     1.759464    
+SparseGPR_Kin8nm_Outliers_split6.csv               SparseGPR       Kin8nm_Outliers      6     1000   0.313585     1.390832    
+SparseGPR_Kin8nm_Outliers_split7.csv               SparseGPR       Kin8nm_Outliers      7     1000   0.335553     1.921271    
+SparseGPR_Kin8nm_Outliers_split8.csv               SparseGPR       Kin8nm_Outliers      8     1000   0.322741     1.424385    
+SparseGPR_Kin8nm_Outliers_split9.csv               SparseGPR       Kin8nm_Outliers      9     1000   0.340229     2.049127    
+SparseGPR_Kin8nm_split0.csv                        SparseGPR       Kin8nm               0     1000   0.274325     4.005610    
+SparseGPR_Kin8nm_split1.csv                        SparseGPR       Kin8nm               1     1000   0.302424     1.512537    
+SparseGPR_Kin8nm_split2.csv                        SparseGPR       Kin8nm               2     1000   0.274757     3.339143    
+SparseGPR_Kin8nm_split3.csv                        SparseGPR       Kin8nm               3     1000   0.316540     3.961648    
+SparseGPR_Kin8nm_split4.csv                        SparseGPR       Kin8nm               4     1000   0.282769     3.289668    
+SparseGPR_Kin8nm_split5.csv                        SparseGPR       Kin8nm               5     1000   0.267722     3.190404    
+SparseGPR_Kin8nm_split6.csv                        SparseGPR       Kin8nm               6     1000   0.291469     1.962211    
+SparseGPR_Kin8nm_split7.csv                        SparseGPR       Kin8nm               7     1000   0.303291     1.910130    
+SparseGPR_Kin8nm_split8.csv                        SparseGPR       Kin8nm               8     1000   0.305258     2.302953    
+SparseGPR_Kin8nm_split9.csv                        SparseGPR       Kin8nm               9     1000   0.280491     3.367706    
+SparseGPR_Protein_Outliers_split0.csv              SparseGPR       Protein_Outliers     0     1000   2.238655     211.744659  
+SparseGPR_Protein_Outliers_split1.csv              SparseGPR       Protein_Outliers     1     1000   0.774173     118.312793  
+SparseGPR_Protein_Outliers_split2.csv              SparseGPR       Protein_Outliers     2     1000   0.602133     21.032304   
+SparseGPR_Protein_Outliers_split3.csv              SparseGPR       Protein_Outliers     3     1000   0.601639     22.460604   
+SparseGPR_Protein_Outliers_split4.csv              SparseGPR       Protein_Outliers     4     1000   0.662921     75.265127   
+SparseGPR_Protein_Outliers_split5.csv              SparseGPR       Protein_Outliers     5     1000   0.609423     23.885766   
+SparseGPR_Protein_Outliers_split6.csv              SparseGPR       Protein_Outliers     6     1000   0.831985     123.389389  
+SparseGPR_Protein_Outliers_split7.csv              SparseGPR       Protein_Outliers     7     1000   0.591926     19.910446   
+SparseGPR_Protein_Outliers_split8.csv              SparseGPR       Protein_Outliers     8     1000   0.606634     22.586145   
+SparseGPR_Protein_Outliers_split9.csv              SparseGPR       Protein_Outliers     9     1000   0.813184     75.066050   
+SparseGPR_Protein_split0.csv                       SparseGPR       Protein              0     1000   0.694118     17.539226   
+SparseGPR_Protein_split1.csv                       SparseGPR       Protein              1     1000   0.687181     19.864296   
+SparseGPR_Protein_split2.csv                       SparseGPR       Protein              2     1000   0.667218     27.037147   
+SparseGPR_Protein_split3.csv                       SparseGPR       Protein              3     1000   0.692738     18.809310   
+SparseGPR_Protein_split4.csv                       SparseGPR       Protein              4     1000   0.662102     27.510782   
+SparseGPR_Protein_split5.csv                       SparseGPR       Protein              5     1000   0.687435     18.196423   
+SparseGPR_Protein_split6.csv                       SparseGPR       Protein              6     1000   0.674212     17.545667   
+SparseGPR_Protein_split7.csv                       SparseGPR       Protein              7     1000   0.688004     16.242745   
+SparseGPR_Protein_split8.csv                       SparseGPR       Protein              8     1000   0.686668     18.132414   
+SparseGPR_Protein_split9.csv                       SparseGPR       Protein              9     1000   0.682107     18.785587   
+SparseGPR_Taxi_Outliers_split0.csv                 SparseGPR       Taxi_Outliers        0     1000   2.121085     252567.503123
+SparseGPR_Taxi_Outliers_split1.csv                 SparseGPR       Taxi_Outliers        1     1000   0.389269     11.936227   
+SparseGPR_Taxi_Outliers_split2.csv                 SparseGPR       Taxi_Outliers        2     1000   0.215917     18.381265   
+SparseGPR_Taxi_Outliers_split3.csv                 SparseGPR       Taxi_Outliers        3     1000   0.214650     17.065176   
+SparseGPR_Taxi_Outliers_split4.csv                 SparseGPR       Taxi_Outliers        4     1000   0.149696     7.396380    
+SparseGPR_Taxi_Outliers_split5.csv                 SparseGPR       Taxi_Outliers        5     1000   0.418568     24.235869   
+SparseGPR_Taxi_Outliers_split6.csv                 SparseGPR       Taxi_Outliers        6     1000   0.511215     25.966557   
+SparseGPR_Taxi_Outliers_split7.csv                 SparseGPR       Taxi_Outliers        7     1000   0.193783     11.123600   
+SparseGPR_Taxi_Outliers_split8.csv                 SparseGPR       Taxi_Outliers        8     1000   0.185119     11.388416   
+SparseGPR_Taxi_Outliers_split9.csv                 SparseGPR       Taxi_Outliers        9     1000   0.357904     21.738423   
+SparseGPR_Taxi_split0.csv                          SparseGPR       Taxi                 0     1000   0.029827     -0.148085   
+SparseGPR_Taxi_split1.csv                          SparseGPR       Taxi                 1     1000   0.020261     -1.098047   
+SparseGPR_Taxi_split2.csv                          SparseGPR       Taxi                 2     1000   0.017777     -0.297151   
+SparseGPR_Taxi_split3.csv                          SparseGPR       Taxi                 3     1000   0.049102     1.356043    
+SparseGPR_Taxi_split4.csv                          SparseGPR       Taxi                 4     1000   0.019087     -0.661423   
+SparseGPR_Taxi_split5.csv                          SparseGPR       Taxi                 5     1000   0.066159     -0.477091   
+SparseGPR_Taxi_split6.csv                          SparseGPR       Taxi                 6     1000   0.049443     0.779172    
+SparseGPR_Taxi_split7.csv                          SparseGPR       Taxi                 7     1000   0.015318     -0.588988   
+SparseGPR_Taxi_split8.csv                          SparseGPR       Taxi                 8     1000   0.016150     -0.531305   
+SparseGPR_Taxi_split9.csv                          SparseGPR       Taxi                 9     1000   0.025589     1.355187    
+SparseTPR_Bike_Outliers_split0.csv                 SparseTPR       Bike_Outliers        0     1000   2.294933     3.388669    
+SparseTPR_Bike_Outliers_split1.csv                 SparseTPR       Bike_Outliers        1     1000   0.539171     0.645183    
+SparseTPR_Bike_Outliers_split2.csv                 SparseTPR       Bike_Outliers        2     1000   0.526663     0.626292    
+SparseTPR_Bike_Outliers_split3.csv                 SparseTPR       Bike_Outliers        3     1000   0.534173     0.645624    
+SparseTPR_Bike_Outliers_split4.csv                 SparseTPR       Bike_Outliers        4     1000   0.633370     0.884152    
+SparseTPR_Bike_Outliers_split5.csv                 SparseTPR       Bike_Outliers        5     1000   0.577427     0.613811    
+SparseTPR_Bike_Outliers_split6.csv                 SparseTPR       Bike_Outliers        6     1000   0.593110     0.657918    
+SparseTPR_Bike_Outliers_split7.csv                 SparseTPR       Bike_Outliers        7     1000   0.578489     0.693040    
+SparseTPR_Bike_Outliers_split8.csv                 SparseTPR       Bike_Outliers        8     1000   0.582000     0.696832    
+SparseTPR_Bike_Outliers_split9.csv                 SparseTPR       Bike_Outliers        9     1000   0.579934     0.622388    
+SparseTPR_Bike_split0.csv                          SparseTPR       Bike                 0     1000   0.626811     0.793484    
+SparseTPR_Bike_split1.csv                          SparseTPR       Bike                 1     1000   0.646054     0.812154    
+SparseTPR_Bike_split2.csv                          SparseTPR       Bike                 2     1000   0.632370     0.785067    
+SparseTPR_Bike_split3.csv                          SparseTPR       Bike                 3     1000   0.641507     0.809911    
+SparseTPR_Bike_split4.csv                          SparseTPR       Bike                 4     1000   0.653917     0.837863    
+SparseTPR_Bike_split5.csv                          SparseTPR       Bike                 5     1000   0.702407     0.809780    
+SparseTPR_Bike_split6.csv                          SparseTPR       Bike                 6     1000   0.653914     0.822190    
+SparseTPR_Bike_split7.csv                          SparseTPR       Bike                 7     1000   0.696057     0.868227    
+SparseTPR_Bike_split8.csv                          SparseTPR       Bike                 8     1000   0.774875     0.897790    
+SparseTPR_Bike_split9.csv                          SparseTPR       Bike                 9     1000   0.642297     0.808146    
+SparseTPR_Concrete_Outliers_split0.csv             SparseTPR       Concrete_Outliers    0     1000   2.136438     5.717073    
+SparseTPR_Concrete_Outliers_split1.csv             SparseTPR       Concrete_Outliers    1     1000   0.278338     0.151298    
+SparseTPR_Concrete_Outliers_split2.csv             SparseTPR       Concrete_Outliers    2     1000   0.273234     0.067198    
+SparseTPR_Concrete_Outliers_split3.csv             SparseTPR       Concrete_Outliers    3     1000   0.304665     0.138431    
+SparseTPR_Concrete_Outliers_split4.csv             SparseTPR       Concrete_Outliers    4     1000   0.310466     0.129789    
+SparseTPR_Concrete_Outliers_split5.csv             SparseTPR       Concrete_Outliers    5     1000   0.214341     -0.047097   
+SparseTPR_Concrete_Outliers_split6.csv             SparseTPR       Concrete_Outliers    6     1000   0.252721     -0.012065   
+SparseTPR_Concrete_Outliers_split7.csv             SparseTPR       Concrete_Outliers    7     1000   0.279910     0.120865    
+SparseTPR_Concrete_Outliers_split8.csv             SparseTPR       Concrete_Outliers    8     1000   0.282283     0.103964    
+SparseTPR_Concrete_Outliers_split9.csv             SparseTPR       Concrete_Outliers    9     1000   0.239002     0.012251    
+SparseTPR_Concrete_split0.csv                      SparseTPR       Concrete             0     1000   0.345965     0.254822    
+SparseTPR_Concrete_split1.csv                      SparseTPR       Concrete             1     1000   0.336791     0.252706    
+SparseTPR_Concrete_split2.csv                      SparseTPR       Concrete             2     1000   0.310942     0.159946    
+SparseTPR_Concrete_split3.csv                      SparseTPR       Concrete             3     1000   0.340381     0.203746    
+SparseTPR_Concrete_split4.csv                      SparseTPR       Concrete             4     1000   0.397989     0.310514    
+SparseTPR_Concrete_split5.csv                      SparseTPR       Concrete             5     1000   0.262639     0.052221    
+SparseTPR_Concrete_split6.csv                      SparseTPR       Concrete             6     1000   0.300471     0.211108    
+SparseTPR_Concrete_split7.csv                      SparseTPR       Concrete             7     1000   0.322882     0.275551    
+SparseTPR_Concrete_split8.csv                      SparseTPR       Concrete             8     1000   0.315105     0.146428    
+SparseTPR_Concrete_split9.csv                      SparseTPR       Concrete             9     1000   0.261018     0.077528    
+SparseTPR_Elevators_Outliers_split0.csv            SparseTPR       Elevators_Outliers   0     1000   2.135660     6.072468    
+SparseTPR_Elevators_Outliers_split1.csv            SparseTPR       Elevators_Outliers   1     1000   0.282806     0.170712    
+SparseTPR_Elevators_Outliers_split2.csv            SparseTPR       Elevators_Outliers   2     1000   0.271962     0.151239    
+SparseTPR_Elevators_Outliers_split3.csv            SparseTPR       Elevators_Outliers   3     1000   0.277525     0.151230    
+SparseTPR_Elevators_Outliers_split4.csv            SparseTPR       Elevators_Outliers   4     1000   0.288524     0.178714    
+SparseTPR_Elevators_Outliers_split5.csv            SparseTPR       Elevators_Outliers   5     1000   0.272046     0.163687    
+SparseTPR_Elevators_Outliers_split6.csv            SparseTPR       Elevators_Outliers   6     1000   0.292875     0.166939    
+SparseTPR_Elevators_Outliers_split7.csv            SparseTPR       Elevators_Outliers   7     1000   0.295753     0.181468    
+SparseTPR_Elevators_Outliers_split8.csv            SparseTPR       Elevators_Outliers   8     1000   0.275392     0.162762    
+SparseTPR_Elevators_Outliers_split9.csv            SparseTPR       Elevators_Outliers   9     1000   0.270521     0.133415    
+SparseTPR_Elevators_split0.csv                     SparseTPR       Elevators            0     1000   0.349933     0.383812    
+SparseTPR_Elevators_split1.csv                     SparseTPR       Elevators            1     1000   0.381839     0.389631    
+SparseTPR_Elevators_split2.csv                     SparseTPR       Elevators            2     1000   0.324415     0.296212    
+SparseTPR_Elevators_split3.csv                     SparseTPR       Elevators            3     1000   0.385627     0.360490    
+SparseTPR_Elevators_split4.csv                     SparseTPR       Elevators            4     1000   0.389118     0.418717    
+SparseTPR_Elevators_split5.csv                     SparseTPR       Elevators            5     1000   0.325370     0.303173    
+SparseTPR_Elevators_split6.csv                     SparseTPR       Elevators            6     1000   0.344328     0.322084    
+SparseTPR_Elevators_split7.csv                     SparseTPR       Elevators            7     1000   0.351605     0.330827    
+SparseTPR_Elevators_split8.csv                     SparseTPR       Elevators            8     1000   0.328386     0.290302    
+SparseTPR_Elevators_split9.csv                     SparseTPR       Elevators            9     1000   0.309456     0.268410    
+SparseTPR_Energy_Outliers_split0.csv               SparseTPR       Energy_Outliers      0     1000   2.123971     12.851419   
+SparseTPR_Energy_Outliers_split1.csv               SparseTPR       Energy_Outliers      1     1000   0.050020     -1.006634   
+SparseTPR_Energy_Outliers_split2.csv               SparseTPR       Energy_Outliers      2     1000   0.048414     -0.996806   
+SparseTPR_Energy_Outliers_split3.csv               SparseTPR       Energy_Outliers      3     1000   0.055027     -0.994051   
+SparseTPR_Energy_Outliers_split4.csv               SparseTPR       Energy_Outliers      4     1000   0.051812     -0.995914   
+SparseTPR_Energy_Outliers_split5.csv               SparseTPR       Energy_Outliers      5     1000   0.056485     -0.995750   
+SparseTPR_Energy_Outliers_split6.csv               SparseTPR       Energy_Outliers      6     1000   0.084409     -0.935970   
+SparseTPR_Energy_Outliers_split7.csv               SparseTPR       Energy_Outliers      7     1000   0.034676     -1.057340   
+SparseTPR_Energy_Outliers_split8.csv               SparseTPR       Energy_Outliers      8     1000   0.061005     -0.543190   
+SparseTPR_Energy_Outliers_split9.csv               SparseTPR       Energy_Outliers      9     1000   0.047148     -1.021717   
+SparseTPR_Energy_split0.csv                        SparseTPR       Energy               0     1000   0.052165     -1.111913   
+SparseTPR_Energy_split1.csv                        SparseTPR       Energy               1     1000   0.059946     -1.080878   
+SparseTPR_Energy_split2.csv                        SparseTPR       Energy               2     1000   0.050431     -1.113019   
+SparseTPR_Energy_split3.csv                        SparseTPR       Energy               3     1000   0.049048     -1.152680   
+SparseTPR_Energy_split4.csv                        SparseTPR       Energy               4     1000   0.053325     -1.117818   
+SparseTPR_Energy_split5.csv                        SparseTPR       Energy               5     1000   0.062897     -1.120287   
+SparseTPR_Energy_split6.csv                        SparseTPR       Energy               6     1000   0.067482     -1.033825   
+SparseTPR_Energy_split7.csv                        SparseTPR       Energy               7     1000   0.043566     -1.170097   
+SparseTPR_Energy_split8.csv                        SparseTPR       Energy               8     1000   0.050797     -1.143249   
+SparseTPR_Energy_split9.csv                        SparseTPR       Energy               9     1000   0.045288     -1.134327   
+SparseTPR_Kin8nm_Outliers_split0.csv               SparseTPR       Kin8nm_Outliers      0     1000   2.193395     4.848796    
+SparseTPR_Kin8nm_Outliers_split1.csv               SparseTPR       Kin8nm_Outliers      1     1000   0.539907     0.718053    
+SparseTPR_Kin8nm_Outliers_split2.csv               SparseTPR       Kin8nm_Outliers      2     1000   0.537532     0.620828    
+SparseTPR_Kin8nm_Outliers_split3.csv               SparseTPR       Kin8nm_Outliers      3     1000   0.551590     0.732484    
+SparseTPR_Kin8nm_Outliers_split4.csv               SparseTPR       Kin8nm_Outliers      4     1000   0.446835     0.632194    
+SparseTPR_Kin8nm_Outliers_split5.csv               SparseTPR       Kin8nm_Outliers      5     1000   0.431330     0.604126    
+SparseTPR_Kin8nm_Outliers_split6.csv               SparseTPR       Kin8nm_Outliers      6     1000   0.413873     0.583805    
+SparseTPR_Kin8nm_Outliers_split7.csv               SparseTPR       Kin8nm_Outliers      7     1000   0.442812     0.618835    
+SparseTPR_Kin8nm_Outliers_split8.csv               SparseTPR       Kin8nm_Outliers      8     1000   0.553599     0.759090    
+SparseTPR_Kin8nm_Outliers_split9.csv               SparseTPR       Kin8nm_Outliers      9     1000   0.439000     0.632477    
+SparseTPR_Kin8nm_split0.csv                        SparseTPR       Kin8nm               0     1000   0.534249     0.782959    
+SparseTPR_Kin8nm_split1.csv                        SparseTPR       Kin8nm               1     1000   0.545271     0.799525    
+SparseTPR_Kin8nm_split2.csv                        SparseTPR       Kin8nm               2     1000   0.536066     0.753963    
+SparseTPR_Kin8nm_split3.csv                        SparseTPR       Kin8nm               3     1000   0.680603     0.942070    
+SparseTPR_Kin8nm_split4.csv                        SparseTPR       Kin8nm               4     1000   0.662314     0.968049    
+SparseTPR_Kin8nm_split5.csv                        SparseTPR       Kin8nm               5     1000   0.514019     0.762507    
+SparseTPR_Kin8nm_split6.csv                        SparseTPR       Kin8nm               6     1000   0.498833     0.737146    
+SparseTPR_Kin8nm_split7.csv                        SparseTPR       Kin8nm               7     1000   0.670402     0.985468    
+SparseTPR_Kin8nm_split8.csv                        SparseTPR       Kin8nm               8     1000   0.526364     0.778202    
+SparseTPR_Kin8nm_split9.csv                        SparseTPR       Kin8nm               9     1000   0.521721     0.776143    
+SparseTPR_Protein_Outliers_split0.csv              SparseTPR       Protein_Outliers     0     1000   2.281751     4.448438    
+SparseTPR_Protein_Outliers_split1.csv              SparseTPR       Protein_Outliers     1     1000   0.653610     1.035167    
+SparseTPR_Protein_Outliers_split2.csv              SparseTPR       Protein_Outliers     2     1000   0.643027     1.028387    
+SparseTPR_Protein_Outliers_split3.csv              SparseTPR       Protein_Outliers     3     1000   0.653866     1.035905    
+SparseTPR_Protein_Outliers_split4.csv              SparseTPR       Protein_Outliers     4     1000   0.664327     1.052953    
+SparseTPR_Protein_Outliers_split5.csv              SparseTPR       Protein_Outliers     5     1000   0.649107     1.036108    
+SparseTPR_Protein_Outliers_split6.csv              SparseTPR       Protein_Outliers     6     1000   0.646065     1.037541    
+SparseTPR_Protein_Outliers_split7.csv              SparseTPR       Protein_Outliers     7     1000   0.653291     1.033153    
+SparseTPR_Protein_Outliers_split8.csv              SparseTPR       Protein_Outliers     8     1000   0.665163     1.039412    
+SparseTPR_Protein_Outliers_split9.csv              SparseTPR       Protein_Outliers     9     1000   0.771915     1.333786    
+SparseTPR_Protein_split0.csv                       SparseTPR       Protein              0     1000   0.798161     1.191238    
+SparseTPR_Protein_split1.csv                       SparseTPR       Protein              1     1000   0.977432     1.555572    
+SparseTPR_Protein_split2.csv                       SparseTPR       Protein              2     1000   0.780661     1.176077    
+SparseTPR_Protein_split3.csv                       SparseTPR       Protein              3     1000   0.789240     1.183724    
+SparseTPR_Protein_split4.csv                       SparseTPR       Protein              4     1000   0.799317     1.195986    
+SparseTPR_Protein_split5.csv                       SparseTPR       Protein              5     1000   0.785029     1.179867    
+SparseTPR_Protein_split6.csv                       SparseTPR       Protein              6     1000   0.780248     1.174864    
+SparseTPR_Protein_split7.csv                       SparseTPR       Protein              7     1000   0.793209     1.187803    
+SparseTPR_Protein_split8.csv                       SparseTPR       Protein              8     1000   0.792411     1.188428    
+SparseTPR_Protein_split9.csv                       SparseTPR       Protein              9     1000   0.785112     1.179225    
+SparseTPR_Taxi_Outliers_split0.csv                 SparseTPR       Taxi_Outliers        0     1000   2.120445     199.742074  
+SparseTPR_Taxi_Outliers_split1.csv                 SparseTPR       Taxi_Outliers        1     1000   0.011930     -1.175522   
+SparseTPR_Taxi_Outliers_split2.csv                 SparseTPR       Taxi_Outliers        2     1000   0.008441     -1.164733   
+SparseTPR_Taxi_Outliers_split3.csv                 SparseTPR       Taxi_Outliers        3     1000   0.009193     -1.163472   
+SparseTPR_Taxi_Outliers_split4.csv                 SparseTPR       Taxi_Outliers        4     1000   0.008190     -1.168497   
+SparseTPR_Taxi_Outliers_split5.csv                 SparseTPR       Taxi_Outliers        5     1000   0.013707     -1.174187   
+SparseTPR_Taxi_Outliers_split6.csv                 SparseTPR       Taxi_Outliers        6     1000   0.008512     -1.165234   
+SparseTPR_Taxi_Outliers_split7.csv                 SparseTPR       Taxi_Outliers        7     1000   0.008419     -1.174619   
+SparseTPR_Taxi_Outliers_split8.csv                 SparseTPR       Taxi_Outliers        8     1000   0.010199     -1.161723   
+SparseTPR_Taxi_Outliers_split9.csv                 SparseTPR       Taxi_Outliers        9     1000   0.015902     -1.171942   
+SparseTPR_Taxi_split0.csv                          SparseTPR       Taxi                 0     1000   0.010953     -1.350439   
+SparseTPR_Taxi_split1.csv                          SparseTPR       Taxi                 1     1000   0.011968     -1.351410   
+SparseTPR_Taxi_split2.csv                          SparseTPR       Taxi                 2     1000   0.009928     -1.352387   
+SparseTPR_Taxi_split3.csv                          SparseTPR       Taxi                 3     1000   0.010953     -1.352403   
+SparseTPR_Taxi_split4.csv                          SparseTPR       Taxi                 4     1000   0.010200     -1.348851   
+SparseTPR_Taxi_split5.csv                          SparseTPR       Taxi                 5     1000   0.009940     -1.352807   
+SparseTPR_Taxi_split6.csv                          SparseTPR       Taxi                 6     1000   0.010315     -1.351502   
+SparseTPR_Taxi_split7.csv                          SparseTPR       Taxi                 7     1000   0.010413     -1.353711   
+SparseTPR_Taxi_split8.csv                          SparseTPR       Taxi                 8     1000   0.009863     -1.350956   
+SparseTPR_Taxi_split9.csv                          SparseTPR       Taxi                 9     1000   0.013035     -1.349244   
+XuSparseTPR_Bike_Outliers_split0.csv               XuSparseTPR     Bike_Outliers        0     1000   2.123257     14.724464   
+XuSparseTPR_Bike_Outliers_split1.csv               XuSparseTPR     Bike_Outliers        1     894    0.248521     -0.286625   
+XuSparseTPR_Bike_Outliers_split2.csv               XuSparseTPR     Bike_Outliers        2     272    0.216313     -0.337033   
+XuSparseTPR_Bike_Outliers_split3.csv               XuSparseTPR     Bike_Outliers        3     236    0.246010     -0.297274   
+XuSparseTPR_Bike_Outliers_split4.csv               XuSparseTPR     Bike_Outliers        4     98     0.246809     -0.264777   
+XuSparseTPR_Bike_Outliers_split5.csv               XuSparseTPR     Bike_Outliers        5     90     0.236397     -0.265834   
+XuSparseTPR_Bike_split0.csv                        XuSparseTPR     Bike                 0     1000   0.276255     -0.201725   
+XuSparseTPR_Bike_split1.csv                        XuSparseTPR     Bike                 1     1000   0.299365     -0.161373   
+XuSparseTPR_Bike_split2.csv                        XuSparseTPR     Bike                 2     1000   0.255715     -0.281807   
+XuSparseTPR_Bike_split3.csv                        XuSparseTPR     Bike                 3     1000   0.287057     -0.232295   
+XuSparseTPR_Bike_split4.csv                        XuSparseTPR     Bike                 4     1000   0.285149     -0.212525   
+XuSparseTPR_Bike_split5.csv                        XuSparseTPR     Bike                 5     1000   0.268246     -0.195928   
+XuSparseTPR_Bike_split6.csv                        XuSparseTPR     Bike                 6     1000   0.283183     -0.167161   
+XuSparseTPR_Bike_split7.csv                        XuSparseTPR     Bike                 7     1000   0.286440     -0.203951   
+XuSparseTPR_Bike_split8.csv                        XuSparseTPR     Bike                 8     1000   0.293683     -0.204263   
+XuSparseTPR_Bike_split9.csv                        XuSparseTPR     Bike                 9     1000   0.280211     -0.249023   
+XuSparseTPR_Concrete_split0.csv                    XuSparseTPR     Concrete             0     1000   0.331451     0.038627    
+XuSparseTPR_Concrete_split1.csv                    XuSparseTPR     Concrete             1     1000   0.317297     0.135589    
+XuSparseTPR_Concrete_split2.csv                    XuSparseTPR     Concrete             2     1000   0.293070     -0.008450   
+XuSparseTPR_Concrete_split3.csv                    XuSparseTPR     Concrete             3     1000   0.354694     0.120958    
+XuSparseTPR_Concrete_split4.csv                    XuSparseTPR     Concrete             4     1000   0.384300     0.165557    
+XuSparseTPR_Concrete_split5.csv                    XuSparseTPR     Concrete             5     1000   0.266851     0.010737    
+XuSparseTPR_Concrete_split6.csv                    XuSparseTPR     Concrete             6     1000   0.329693     0.153149    
+XuSparseTPR_Concrete_split7.csv                    XuSparseTPR     Concrete             7     1000   0.306476     0.152740    
+XuSparseTPR_Concrete_split8.csv                    XuSparseTPR     Concrete             8     1000   0.332147     0.112502    
+XuSparseTPR_Concrete_split9.csv                    XuSparseTPR     Concrete             9     1000   0.266875     0.033606    
+XuSparseTPR_Elevators_split0.csv                   XuSparseTPR     Elevators            0     1000   0.304817     0.118274    
+XuSparseTPR_Elevators_split1.csv                   XuSparseTPR     Elevators            1     1000   0.318214     0.151864    
+XuSparseTPR_Elevators_split2.csv                   XuSparseTPR     Elevators            2     1000   0.306290     0.126996    
+XuSparseTPR_Elevators_split3.csv                   XuSparseTPR     Elevators            3     1000   0.307966     0.095794    
+XuSparseTPR_Elevators_split4.csv                   XuSparseTPR     Elevators            4     1000   0.316606     0.161675    
+XuSparseTPR_Elevators_split5.csv                   XuSparseTPR     Elevators            5     1000   0.310199     0.152549    
+XuSparseTPR_Elevators_split6.csv                   XuSparseTPR     Elevators            6     1000   0.330170     0.128903    
+XuSparseTPR_Elevators_split7.csv                   XuSparseTPR     Elevators            7     1000   0.323077     0.133284    
+XuSparseTPR_Elevators_split8.csv                   XuSparseTPR     Elevators            8     1000   0.328947     0.137720    
+XuSparseTPR_Elevators_split9.csv                   XuSparseTPR     Elevators            9     1000   0.293578     0.116363    
+XuSparseTPR_Energy_Outliers_split0.csv             XuSparseTPR     Energy_Outliers      0     1000   2.124819     3.445846    
+XuSparseTPR_Energy_Outliers_split1.csv             XuSparseTPR     Energy_Outliers      1     1000   0.070214     -0.928180   
+XuSparseTPR_Energy_Outliers_split2.csv             XuSparseTPR     Energy_Outliers      2     1000   0.058905     -0.928389   
+XuSparseTPR_Energy_Outliers_split3.csv             XuSparseTPR     Energy_Outliers      3     1000   0.064825     -0.949272   
+XuSparseTPR_Energy_Outliers_split4.csv             XuSparseTPR     Energy_Outliers      4     1000   0.060713     -0.946922   
+XuSparseTPR_Energy_Outliers_split5.csv             XuSparseTPR     Energy_Outliers      5     1000   0.064127     -0.946822   
+XuSparseTPR_Energy_Outliers_split6.csv             XuSparseTPR     Energy_Outliers      6     1000   0.072398     -0.896696   
+XuSparseTPR_Energy_Outliers_split7.csv             XuSparseTPR     Energy_Outliers      7     1000   0.040350     -1.017184   
+XuSparseTPR_Energy_Outliers_split8.csv             XuSparseTPR     Energy_Outliers      8     1000   0.059304     -0.943373   
+XuSparseTPR_Energy_Outliers_split9.csv             XuSparseTPR     Energy_Outliers      9     1000   0.089540     -0.918856   
+XuSparseTPR_Energy_split0.csv                      XuSparseTPR     Energy               0     1000   0.059979     -0.941877   
+XuSparseTPR_Energy_split1.csv                      XuSparseTPR     Energy               1     1000   0.124999     -0.865503   
+XuSparseTPR_Energy_split2.csv                      XuSparseTPR     Energy               2     1000   0.048587     -1.113453   
+XuSparseTPR_Energy_split3.csv                      XuSparseTPR     Energy               3     1000   0.077688     -0.932871   
+XuSparseTPR_Energy_split4.csv                      XuSparseTPR     Energy               4     1000   0.090022     -0.917116   
+XuSparseTPR_Energy_split5.csv                      XuSparseTPR     Energy               5     1000   0.043916     -1.145612   
+XuSparseTPR_Energy_split6.csv                      XuSparseTPR     Energy               6     1000   0.086994     -0.988710   
+XuSparseTPR_Energy_split7.csv                      XuSparseTPR     Energy               7     1000   0.045008     -1.147300   
+XuSparseTPR_Energy_split8.csv                      XuSparseTPR     Energy               8     1000   0.068000     -0.938596   
+XuSparseTPR_Energy_split9.csv                      XuSparseTPR     Energy               9     1000   0.092506     -0.927504   
+XuSparseTPR_Kin8nm_Outliers_split0.csv             XuSparseTPR     Kin8nm_Outliers      0     1000   2.148934     3.917545    
+XuSparseTPR_Kin8nm_Outliers_split1.csv             XuSparseTPR     Kin8nm_Outliers      1     1000   0.250662     -0.004002   
+XuSparseTPR_Kin8nm_Outliers_split2.csv             XuSparseTPR     Kin8nm_Outliers      2     1000   0.271663     0.069382    
+XuSparseTPR_Kin8nm_Outliers_split3.csv             XuSparseTPR     Kin8nm_Outliers      3     1000   0.273298     0.095359    
+XuSparseTPR_Kin8nm_Outliers_split4.csv             XuSparseTPR     Kin8nm_Outliers      4     1000   0.246913     -0.007631   
+XuSparseTPR_Kin8nm_Outliers_split5.csv             XuSparseTPR     Kin8nm_Outliers      5     1000   0.247629     -0.005037   
+XuSparseTPR_Kin8nm_Outliers_split6.csv             XuSparseTPR     Kin8nm_Outliers      6     1000   0.228385     -0.052903   
+XuSparseTPR_Kin8nm_Outliers_split7.csv             XuSparseTPR     Kin8nm_Outliers      7     1000   0.251720     0.027589    
+XuSparseTPR_Kin8nm_Outliers_split8.csv             XuSparseTPR     Kin8nm_Outliers      8     1000   0.264643     0.074811    
+XuSparseTPR_Kin8nm_Outliers_split9.csv             XuSparseTPR     Kin8nm_Outliers      9     1000   0.263298     0.080061    
+XuSparseTPR_Kin8nm_split0.csv                      XuSparseTPR     Kin8nm               0     1000   0.303087     0.144426    
+XuSparseTPR_Kin8nm_split1.csv                      XuSparseTPR     Kin8nm               1     1000   0.301592     0.143641    
+XuSparseTPR_Kin8nm_split2.csv                      XuSparseTPR     Kin8nm               2     1000   0.297325     0.141544    
+XuSparseTPR_Kin8nm_split3.csv                      XuSparseTPR     Kin8nm               3     1000   0.307937     0.198010    
+XuSparseTPR_Kin8nm_split4.csv                      XuSparseTPR     Kin8nm               4     1000   0.301317     0.165540    
+XuSparseTPR_Kin8nm_split5.csv                      XuSparseTPR     Kin8nm               5     1000   0.294418     0.146979    
+XuSparseTPR_Kin8nm_split6.csv                      XuSparseTPR     Kin8nm               6     1000   0.273286     0.080291    
+XuSparseTPR_Kin8nm_split7.csv                      XuSparseTPR     Kin8nm               7     1000   0.299053     0.157864    
+XuSparseTPR_Kin8nm_split8.csv                      XuSparseTPR     Kin8nm               8     1000   0.313418     0.206654    
+XuSparseTPR_Kin8nm_split9.csv                      XuSparseTPR     Kin8nm               9     1000   0.296946     0.157969    
+XuSparseTPR_Protein_Outliers_split0.csv            XuSparseTPR     Protein_Outliers     0     644    2.267932     7.147160    
+XuSparseTPR_Protein_Outliers_split1.csv            XuSparseTPR     Protein_Outliers     1     683    0.604300     0.737013    
+XuSparseTPR_Protein_Outliers_split2.csv            XuSparseTPR     Protein_Outliers     2     484    0.593755     0.732962    
+XuSparseTPR_Protein_Outliers_split3.csv            XuSparseTPR     Protein_Outliers     3     795    0.614002     0.747627    
+XuSparseTPR_Protein_Outliers_split4.csv            XuSparseTPR     Protein_Outliers     4     223    0.608018     0.798724    
+XuSparseTPR_Protein_Outliers_split5.csv            XuSparseTPR     Protein_Outliers     5     162    0.610151     0.795294    
+XuSparseTPR_Protein_Outliers_split6.csv            XuSparseTPR     Protein_Outliers     6     287    0.581669     0.717488    
+XuSparseTPR_Protein_Outliers_split7.csv            XuSparseTPR     Protein_Outliers     7     212    0.598070     0.740343    
+XuSparseTPR_Protein_Outliers_split8.csv            XuSparseTPR     Protein_Outliers     8     285    0.615184     0.781176    
+XuSparseTPR_Protein_Outliers_split9.csv            XuSparseTPR     Protein_Outliers     9     497    0.591596     0.750751    
+XuSparseTPR_Protein_split0.csv                     XuSparseTPR     Protein              0     737    0.696097     0.924921    
+XuSparseTPR_Protein_split1.csv                     XuSparseTPR     Protein              1     279    0.702953     0.929652    
+XuSparseTPR_Protein_split2.csv                     XuSparseTPR     Protein              2     880    0.750849     0.978704    
+XuSparseTPR_Protein_split3.csv                     XuSparseTPR     Protein              3     620    0.733310     0.958300    
+XuSparseTPR_Protein_split4.csv                     XuSparseTPR     Protein              4     643    0.711289     0.953308    
+XuSparseTPR_Protein_split5.csv                     XuSparseTPR     Protein              5     799    0.720166     0.937940    
+XuSparseTPR_Protein_split6.csv                     XuSparseTPR     Protein              6     296    0.753738     0.974089    
+XuSparseTPR_Protein_split7.csv                     XuSparseTPR     Protein              7     907    0.780632     0.974947    
+XuSparseTPR_Protein_split8.csv                     XuSparseTPR     Protein              8     243    0.711902     0.957114    
+XuSparseTPR_Protein_split9.csv                     XuSparseTPR     Protein              9     1000   0.728081     0.938004    
+XuSparseTPR_Taxi_Outliers_split0.csv               XuSparseTPR     Taxi_Outliers        0     60     2.121716     164.076069  
+XuSparseTPR_Taxi_Outliers_split1.csv               XuSparseTPR     Taxi_Outliers        1     927    0.025056     -1.238948   
+XuSparseTPR_Taxi_Outliers_split2.csv               XuSparseTPR     Taxi_Outliers        2     869    0.041540     -1.237989   
+XuSparseTPR_Taxi_Outliers_split3.csv               XuSparseTPR     Taxi_Outliers        3     698    0.130934     -1.235796   
+XuSparseTPR_Taxi_Outliers_split4.csv               XuSparseTPR     Taxi_Outliers        4     198    0.033680     -1.218976   
+XuSparseTPR_Taxi_Outliers_split5.csv               XuSparseTPR     Taxi_Outliers        5     475    0.136476     -1.236409   
+XuSparseTPR_Taxi_Outliers_split6.csv               XuSparseTPR     Taxi_Outliers        6     829    0.094973     -1.235641   
+XuSparseTPR_Taxi_Outliers_split7.csv               XuSparseTPR     Taxi_Outliers        7     862    0.031269     -1.240040   
+XuSparseTPR_Taxi_Outliers_split8.csv               XuSparseTPR     Taxi_Outliers        8     41     0.056043     -1.224420   
+XuSparseTPR_Taxi_Outliers_split9.csv               XuSparseTPR     Taxi_Outliers        9     762    0.063247     -1.227823   
+XuSparseTPR_Taxi_split0.csv                        XuSparseTPR     Taxi                 0     228    0.154222     -1.233057   
+XuSparseTPR_Taxi_split1.csv                        XuSparseTPR     Taxi                 1     51     0.060019     -1.227459   
+XuSparseTPR_Taxi_split3.csv                        XuSparseTPR     Taxi                 3     1000   0.025041     -1.356361   
+XuSparseTPR_Taxi_split4.csv                        XuSparseTPR     Taxi                 4     1000   0.031320     -1.238942   
+XuSparseTPR_Taxi_split5.csv                        XuSparseTPR     Taxi                 5     843    0.024450     -1.361034   
+XuSparseTPR_Taxi_split6.csv                        XuSparseTPR     Taxi                 6     40     0.124203     -1.229774   
+XuSparseTPR_Taxi_split7.csv                        XuSparseTPR     Taxi                 7     1000   0.108807     -1.228238   
+XuSparseTPR_Taxi_split8.csv                        XuSparseTPR     Taxi                 8     460    0.035056     -1.205911   
+XuSparseTPR_Taxi_split9.csv                        XuSparseTPR     Taxi                 9     1000   0.045658     -1.348132   
+
+==========================================================================================================
+Results saved to: results/20260113_002155/final_epochs_summary_20260113_002155.txt
+
+Summary by Model:
+----------------------------------------------------------------------------------------------------------
+SparseGPR: 140 files, avg epoch: 1000, avg RMSE: 0.426259, avg NLL: 1853.81
+SparseTPR: 140 files, avg epoch: 1000, avg RMSE: 0.457866, avg NLL: 1.79361
+XuSparseTPR: 115 files, avg epoch: 822.687, avg RMSE: 0.362184, avg NLL: 1.47146
+
+Checking for incomplete runs (epoch < 1000):
+----------------------------------------------------------------------------------------------------------
+  ⚠️  XuSparseTPR_Bike_Outliers_split1.csv: epoch 894
+  ⚠️  XuSparseTPR_Bike_Outliers_split2.csv: epoch 272
+  ⚠️  XuSparseTPR_Bike_Outliers_split3.csv: epoch 236
+  ⚠️  XuSparseTPR_Bike_Outliers_split4.csv: epoch 98
+  ⚠️  XuSparseTPR_Bike_Outliers_split5.csv: epoch 90
+  ⚠️  XuSparseTPR_Protein_Outliers_split0.csv: epoch 644
+  ⚠️  XuSparseTPR_Protein_Outliers_split1.csv: epoch 683
+  ⚠️  XuSparseTPR_Protein_Outliers_split2.csv: epoch 484
+  ⚠️  XuSparseTPR_Protein_Outliers_split3.csv: epoch 795
+  ⚠️  XuSparseTPR_Protein_Outliers_split4.csv: epoch 223
+  ⚠️  XuSparseTPR_Protein_Outliers_split5.csv: epoch 162
+  ⚠️  XuSparseTPR_Protein_Outliers_split6.csv: epoch 287
+  ⚠️  XuSparseTPR_Protein_Outliers_split7.csv: epoch 212
+  ⚠️  XuSparseTPR_Protein_Outliers_split8.csv: epoch 285
+  ⚠️  XuSparseTPR_Protein_Outliers_split9.csv: epoch 497
+  ⚠️  XuSparseTPR_Protein_split0.csv: epoch 737
+  ⚠️  XuSparseTPR_Protein_split1.csv: epoch 279
+  ⚠️  XuSparseTPR_Protein_split2.csv: epoch 880
+  ⚠️  XuSparseTPR_Protein_split3.csv: epoch 620
+  ⚠️  XuSparseTPR_Protein_split4.csv: epoch 643
+  ⚠️  XuSparseTPR_Protein_split5.csv: epoch 799
+  ⚠️  XuSparseTPR_Protein_split6.csv: epoch 296
+  ⚠️  XuSparseTPR_Protein_split7.csv: epoch 907
+  ⚠️  XuSparseTPR_Protein_split8.csv: epoch 243
+  ⚠️  XuSparseTPR_Taxi_Outliers_split0.csv: epoch 60
+  ⚠️  XuSparseTPR_Taxi_Outliers_split1.csv: epoch 927
+  ⚠️  XuSparseTPR_Taxi_Outliers_split2.csv: epoch 869
+  ⚠️  XuSparseTPR_Taxi_Outliers_split3.csv: epoch 698
+  ⚠️  XuSparseTPR_Taxi_Outliers_split4.csv: epoch 198
+  ⚠️  XuSparseTPR_Taxi_Outliers_split5.csv: epoch 475
+  ⚠️  XuSparseTPR_Taxi_Outliers_split6.csv: epoch 829
+  ⚠️  XuSparseTPR_Taxi_Outliers_split7.csv: epoch 862
+  ⚠️  XuSparseTPR_Taxi_Outliers_split8.csv: epoch 41
+  ⚠️  XuSparseTPR_Taxi_Outliers_split9.csv: epoch 762
+  ⚠️  XuSparseTPR_Taxi_split0.csv: epoch 228
+  ⚠️  XuSparseTPR_Taxi_split1.csv: epoch 51
+  ⚠️  XuSparseTPR_Taxi_split5.csv: epoch 843
+  ⚠️  XuSparseTPR_Taxi_split6.csv: epoch 40
+  ⚠️  XuSparseTPR_Taxi_split8.csv: epoch 460
