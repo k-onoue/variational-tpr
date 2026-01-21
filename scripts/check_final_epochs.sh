@@ -23,41 +23,37 @@ echo "Examining CSV files in $RESULTS_DIR"
 echo "=========================================================================================================="
 echo ""
 
-# Header
-printf "%-50s %-15s %-20s %-5s %-6s %-12s %-12s\n" "File" "Model" "Dataset" "Split" "Epoch" "RMSE" "NLL"
-echo "----------------------------------------------------------------------------------------------------------"
-
-# Process each CSV file
-for csv_file in "$RESULTS_DIR"/*.csv; do
-    if [ -f "$csv_file" ]; then
-        filename=$(basename "$csv_file")
-        
-        # Get the last line (final epoch), skip header
-        last_line=$(tail -n 1 "$csv_file")
-        
-        # Parse CSV fields
-        IFS=',' read -r epoch loss elbo log_prior time rmse nll model dataset split <<< "$last_line"
-        
-        # Print formatted output
-        printf "%-50s %-15s %-20s %-5s %-6s %-12s %-12s\n" \
-            "$filename" "$model" "$dataset" "$split" "$epoch" "$rmse" "$nll"
-    fi
-done | tee "$OUTPUT_FILE"
+# Write header + rows to OUTPUT_FILE and console
+{
+    printf "%-50s %-15s %-20s %-5s %-6s %-12s %-12s\n" "File" "Model" "Dataset" "Split" "Epoch" "RMSE" "NLL"
+    # Process each CSV file
+    for csv_file in "$RESULTS_DIR"/*.csv; do
+        if [ -f "$csv_file" ]; then
+            filename=$(basename "$csv_file")
+            # Get the last line (final epoch), skip header
+            last_line=$(tail -n 1 "$csv_file")
+            # Parse CSV fields
+            IFS=',' read -r epoch loss elbo log_prior time rmse nll model dataset split <<< "$last_line"
+            # Print formatted output
+            printf "%-50s %-15s %-20s %-5s %-6s %-12s %-12s\n" \
+                "$filename" "$model" "$dataset" "$split" "$epoch" "$rmse" "$nll"
+        fi
+    done
+} | tee "$OUTPUT_FILE"
 
 echo ""
 echo "=========================================================================================================="
 echo "Results saved to: $OUTPUT_FILE"
 echo ""
 
-# Count files by model
+# Summary by Model
 echo "Summary by Model:"
 echo "----------------------------------------------------------------------------------------------------------"
 for model in $(tail -n +2 "$OUTPUT_FILE" | awk '{print $2}' | sort -u); do
-    count=$(grep -wc "$model" "$OUTPUT_FILE")
-    avg_epoch=$(grep -w "$model" "$OUTPUT_FILE" | awk '{sum+=$5; count++} END {if(count>0) print sum/count}')
-    avg_rmse=$(grep -w "$model" "$OUTPUT_FILE" | awk '{sum+=$6; count++} END {if(count>0) print sum/count}')
-    avg_nll=$(grep -w "$model" "$OUTPUT_FILE" | awk '{sum+=$7; count++} END {if(count>0) print sum/count}')
-    
+    count=$(tail -n +2 "$OUTPUT_FILE" | awk -v m="$model" '$2 == m' | wc -l)
+    avg_epoch=$(tail -n +2 "$OUTPUT_FILE" | awk -v m="$model" '$2 == m {sum+=$5; count++} END {if(count>0) print sum/count}')
+    avg_rmse=$(tail -n +2 "$OUTPUT_FILE" | awk -v m="$model" '$2 == m {sum+=$6; count++} END {if(count>0) print sum/count}')
+    avg_nll=$(tail -n +2 "$OUTPUT_FILE" | awk -v m="$model" '$2 == m {sum+=$7; count++} END {if(count>0) print sum/count}')
     echo "$model: $count files, avg epoch: $avg_epoch, avg RMSE: $avg_rmse, avg NLL: $avg_nll"
 done
 
