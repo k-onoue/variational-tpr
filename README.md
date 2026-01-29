@@ -1,5 +1,6 @@
-# Tractable Variational Student-t Process Regression via Data Augmentation
+# Closed-Form Coordinate Ascent Variational Inference for Student-t Process Regression with Student-t Likelihood
 
+This work is accepted by AISTATS 2026.
 
 ## 1. Installation
 
