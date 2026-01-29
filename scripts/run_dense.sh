@@ -9,18 +9,10 @@ MODEL_NAMES=("TangTPR")
 PYTHON_SCRIPT="experiments/dense_v8.py"
 
 # List of datasets (should match the config in the Python script)
-# DATASETS=(
-#     'Boston' 'Diabetes' 'ELE' 'MPG'
-#     'Machine_CPU' 'Neal' 'Neal_XOutlier' 'Yacht'
-#     'Boston_Outliers' 'Diabetes_Outliers' 'ELE_Outliers' 'MPG_Outliers'
-#     'Machine_CPU_Outliers' 'Neal_Outliers' 'Neal_YOutlier' 'Yacht_Outliers'
-# )
-# DATASETS=('ELE' 'ELE_Outliers')
-# DATASETS=('Boston' 'Boston_Outliers')
 DATASETS=(
-    'Diabetes' 'MPG'
+    'Boston' 'Diabetes' 'ELE' 'MPG'
     'Machine_CPU' 'Neal' 'Neal_XOutlier' 'Yacht'
-    'Diabetes_Outliers' 'MPG_Outliers'
+    'Boston_Outliers' 'Diabetes_Outliers' 'ELE_Outliers' 'MPG_Outliers'
     'Machine_CPU_Outliers' 'Neal_Outliers' 'Neal_YOutlier' 'Yacht_Outliers'
 )
 NUM_SPLITS=10
