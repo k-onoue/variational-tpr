@@ -117,7 +117,21 @@ model = SparseTPR(X_train, y_train, M=25, hyper_settings=settings)
 
 ## 4. Experiments
 
-### 4.1 Hardware and Runtime Environment
+### 4.1 Setup datasets
+
+Downloads kaggle.json to setup Kaggle API.
+
+```bash
+mv ~/Downloads/kaggle.json ~/.kaggle/
+```
+
+Then, run the following command.
+
+```bash
+bash scripts/setup_datasets.sh
+```
+
+### 4.2 Hardware and Runtime Environment
 
 All experiments in this paper were conducted under the following hardware and runtime conditions:
 
@@ -134,7 +148,7 @@ All experiments in this paper were conducted under the following hardware and ru
 - **GPU:** 1 x NVIDIA A100
 - **Timeout:** 14,400 seconds (4 hours)
 
-### 4.2 Running Experiments
+### 4.3 Running Experiments
 
 The experiments reported in the paper can be started by running the shell scripts located in the `scripts` directory from the project root directory.
 
