@@ -2,6 +2,14 @@
 
 This work is accepted by AISTATS 2026.
 
+```
+@inproceedings{onoueclosed,
+  title={Closed-Form Coordinate Ascent Variational Inference for Student-t Process Regression with Student-t Likelihood},
+  author={Onoue, Keisuke and Kubo, Takatomi and Ikeda, Kazushi},
+  booktitle={The 29th International Conference on Artificial Intelligence and Statistics}
+}
+```
+
 ## 1. Installation
 
 ### 1.1 Prerequisites
@@ -166,8 +174,3 @@ For the ablation studies for `TangTPR` and `XuTPR`, run the following command:
 ```sh
 bash scripts/run_dense_ablation.sh
 ```
-
-
-## 5. Citation
-
-Citation information is pending. We will add the BibTeX entry here once the paper is publicly available.
