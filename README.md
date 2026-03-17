@@ -1,6 +1,6 @@
 # Closed-Form Coordinate Ascent Variational Inference for Student-t Process Regression with Student-t Likelihood
 
-This work is accepted by AISTATS 2026.
+This work is accepted to AISTATS 2026.
 
 ```
 @inproceedings{
