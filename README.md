@@ -3,10 +3,13 @@
 This work is accepted by AISTATS 2026.
 
 ```
-@inproceedings{onoueclosed,
-  title={Closed-Form Coordinate Ascent Variational Inference for Student-t Process Regression with Student-t Likelihood},
-  author={Onoue, Keisuke and Kubo, Takatomi and Ikeda, Kazushi},
-  booktitle={The 29th International Conference on Artificial Intelligence and Statistics}
+@inproceedings{
+onoue2026closedform,
+title={Closed-Form Coordinate Ascent Variational Inference for Student-t Process Regression with Student-t Likelihood},
+author={Keisuke Onoue and Takatomi Kubo and Kazushi Ikeda},
+booktitle={The 29th International Conference on Artificial Intelligence and Statistics},
+year={2026},
+url={https://openreview.net/forum?id=PN83VEfbQI}
 }
 ```
 
