@@ -67,11 +67,11 @@ class TPR(nn.Module):
         self.log_dof_lik = nn.Parameter(torch.log(dof_lik))
         self.log_noisescale = nn.Parameter(torch.log(noisescale))
         
-        # Register non-trainable buffers for the Normal-Gamma distribution q(f,r)
-        self.register_buffer('m_f', torch.zeros(self.N, 1, dtype=dtype))
-        self.register_buffer('S_f', torch.eye(self.N, dtype=dtype))
-        self.register_buffer('alpha_r', dof_func / 2.0)
-        self.register_buffer('beta_r', dof_func / 2.0)
+        # Register variational parameters for q(f,r) as Parameters (to maintain computational graph)
+        self.m_f = nn.Parameter(torch.zeros(self.N, 1, dtype=dtype))
+        self.S_f = nn.Parameter(torch.eye(self.N, dtype=dtype))
+        self.alpha_r = nn.Parameter(dof_func / 2.0)
+        self.beta_r = nn.Parameter(dof_func / 2.0)
 
         # Set kernel function
         if kernel in (None, "rbf"):
@@ -180,46 +180,47 @@ class TPR(nn.Module):
 
 
     def _e_step(self, K_XX_op, params):
-        with torch.no_grad():
-            identity = torch.eye(self.N, device=self.device, dtype=self.X_full.dtype)
-            sigma2 = params['noisescale']
+        # Update variational parameters while maintaining computational graph
+        identity = torch.eye(self.N, device=self.device, dtype=self.X_full.dtype)
+        sigma2 = params['noisescale']
 
-            # Update q(λ) parameters
-            E_r_inv = self.beta_r / (self.alpha_r - 1.0).clamp(min=EPSILON)
-            var_f = E_r_inv * torch.diag(self.S_f)
-            E_sq_err = (self.y_full.squeeze() - self.m_f.squeeze())**2 + var_f
-            alpha_lambda = (params['dof_lik'] / 2.0 + 0.5).expand(self.N)
-            beta_lambda = params['dof_lik'] / 2.0 + 0.5 * E_sq_err / sigma2
-            
-            # Update q(f), q(r) parameters independently
-            E_lambda = alpha_lambda / beta_lambda.clamp(min=EPSILON)
-            E_r = self.alpha_r / self.beta_r.clamp(min=EPSILON)
-            K_XX_inv = K_XX_op.solve(identity)
-            scaled_K_XX_inv = K_XX_inv * E_r
+        # Update q(λ) parameters
+        E_r_inv = self.beta_r / (self.alpha_r - 1.0).clamp(min=EPSILON)
+        var_f = E_r_inv * torch.diag(self.S_f)
+        E_sq_err = (self.y_full.squeeze() - self.m_f.squeeze())**2 + var_f
+        alpha_lambda = (params['dof_lik'] / 2.0 + 0.5).expand(self.N)
+        beta_lambda = params['dof_lik'] / 2.0 + 0.5 * E_sq_err / sigma2
+        
+        # Update q(f), q(r) parameters independently
+        E_lambda = alpha_lambda / beta_lambda.clamp(min=EPSILON)
+        E_r = self.alpha_r / self.beta_r.clamp(min=EPSILON)
+        K_XX_inv = K_XX_op.solve(identity)
+        scaled_K_XX_inv = K_XX_inv * E_r
 
-            target_S_f_inv = scaled_K_XX_inv + torch.diag(E_lambda / sigma2)
-            target_S_f_inv_op = to_linear_operator(target_S_f_inv)
-            target_S_f = target_S_f_inv_op.solve(identity)
-            target_m_f_term = (E_lambda * self.y_full.squeeze()) / sigma2
-            target_m_f = target_S_f @ target_m_f_term.unsqueeze(1)
-            
-            target_alpha_r = params['dof_func'] / 2.0 + self.N / 2.0
-            trace_term = torch.trace(K_XX_inv @ target_S_f)
-            K_inv_m = K_XX_inv @ target_m_f
-            quad_term = (target_m_f.T @ K_inv_m).squeeze()
-            target_beta_r = params['dof_func'] / 2.0 + (trace_term + quad_term) / 2.0
+        target_S_f_inv = scaled_K_XX_inv + torch.diag(E_lambda / sigma2)
+        target_S_f_inv_op = to_linear_operator(target_S_f_inv)
+        target_S_f = target_S_f_inv_op.solve(identity)
+        target_m_f_term = (E_lambda * self.y_full.squeeze()) / sigma2
+        target_m_f = target_S_f @ target_m_f_term.unsqueeze(1)
+        
+        target_alpha_r = params['dof_func'] / 2.0 + self.N / 2.0
+        trace_term = torch.trace(K_XX_inv @ target_S_f)
+        K_inv_m = K_XX_inv @ target_m_f
+        quad_term = (target_m_f.T @ K_inv_m).squeeze()
+        target_beta_r = params['dof_func'] / 2.0 + (trace_term + quad_term) / 2.0
 
-            # Update q(f, r) via projection
-            _, S_f_proj, _, _ = get_optimal_gaussian_gamma(
-                target_m_f, target_S_f, target_alpha_r, target_beta_r
-            )
+        # Update q(f, r) via projection
+        _, S_f_proj, _, _ = get_optimal_gaussian_gamma(
+            target_m_f, target_S_f, target_alpha_r, target_beta_r
+        )
 
-            self.m_f.data      = target_m_f
-            self.S_f.data      = S_f_proj
-            self.alpha_r.data  = target_alpha_r
-            self.beta_r.data   = target_beta_r
+        # Update parameters while maintaining computational graph
+        self.m_f = nn.Parameter(target_m_f)
+        self.S_f = nn.Parameter(S_f_proj)
+        self.alpha_r = nn.Parameter(target_alpha_r)
+        self.beta_r = nn.Parameter(target_beta_r)
 
-            return alpha_lambda, beta_lambda
+        return alpha_lambda, beta_lambda
 
     def _m_step(self, optimizer, loss):
         if optimizer is None: return
@@ -233,7 +234,12 @@ class TPR(nn.Module):
         hyper_lr=0.01,
         X_test=None, y_test=None, eval_interval=10
     ):
-        parameters_to_optimize = [p for name, p in self.named_parameters() if self.hyper_optim_mode.get(name.replace("log_",""), "MLE") != 'FIX']
+        # Exclude variational parameters from optimizer (they are updated via E-step)
+        variational_params = {'m_f', 'S_f', 'alpha_r', 'beta_r'}
+        parameters_to_optimize = [
+            p for name, p in self.named_parameters() 
+            if name not in variational_params and self.hyper_optim_mode.get(name.replace("log_",""), "MLE") != 'FIX'
+        ]
         optimizer = optim.Adam(parameters_to_optimize, lr=hyper_lr) if parameters_to_optimize else None
 
         history = {
@@ -462,11 +468,11 @@ class SparseTPR(nn.Module):
         # Initialize inducing points as learnable parameters
         self.Z = nn.Parameter(self._initialize_inducing_points(method=inducing_init_method))
 
-        # Register variational parameters for q(u, r) ~ Normal-Gamma(m_u, S_u, alpha_r, beta_r)
-        self.register_buffer('m_u', torch.zeros(self.M, 1, dtype=dtype))
-        self.register_buffer('S_u', torch.eye(self.M, dtype=dtype))
-        self.register_buffer('alpha_r', dof_func / 2.0)
-        self.register_buffer('beta_r', dof_func / 2.0)
+        # Register variational parameters for q(u, r) as Parameters (to maintain computational graph)
+        self.m_u = nn.Parameter(torch.zeros(self.M, 1, dtype=dtype))
+        self.S_u = nn.Parameter(torch.eye(self.M, dtype=dtype))
+        self.alpha_r = nn.Parameter(dof_func / 2.0)
+        self.beta_r = nn.Parameter(dof_func / 2.0)
 
         # Set kernel function
         if kernel in (None, "rbf"): self.kernel = rbf_kernel
@@ -629,56 +635,55 @@ class SparseTPR(nn.Module):
             return alpha_lambda_batch, beta_lambda_batch, E_lambda_batch
 
     def _e_step_global(self, X_batch, y_batch, K_XZ_batch, K_ZZ, local_params, params, var_lr):
-        # E-Step (Global)
-        with torch.no_grad():
-            _, _, E_lambda_batch = local_params
-            scaling_factor = self.N / X_batch.shape[0]
+        # E-Step (Global) - Update variational parameters while maintaining computational graph
+        _, _, E_lambda_batch = local_params
+        scaling_factor = self.N / X_batch.shape[0]
 
-            identity_M = torch.eye(self.M, device=self.device, dtype=X_batch.dtype)
+        identity_M = torch.eye(self.M, device=self.device, dtype=X_batch.dtype)
 
-            K_ZZ_inv = K_ZZ.solve(identity_M)
-            K_ZZ_inv = to_linear_operator(K_ZZ_inv)
-            A_batch = K_XZ_batch @ K_ZZ_inv
-            
-            # --- Target Parameters for q(u, r) ---
-            # Target for q(u)
-            E_r = (self.alpha_r / self.beta_r).clamp(min=EPSILON)
-            S_u_inv_data_term = (A_batch.T * E_lambda_batch) @ A_batch / params['noisescale'] * scaling_factor
-            target_S_u_inv = E_r * K_ZZ_inv + S_u_inv_data_term
-            target_S_u_inv = target_S_u_inv.add_jitter(JITTER)
-            target_S_u = target_S_u_inv.solve(identity_M)
-            m_u_data_term = A_batch.T @ torch.diag(E_lambda_batch) @ y_batch / params['noisescale'] * scaling_factor
-            target_m_u = target_S_u @ m_u_data_term
-            
-            # Target for q(r) - using simplified update
-            target_alpha_r = params['dof_func'] / 2.0 + self.M / 2.0
-            E_quad_u = torch.trace(K_ZZ_inv @ (target_S_u + target_m_u @ target_m_u.T))
-            target_beta_r = params['dof_func'] / 2.0 + E_quad_u / 2.0
+        K_ZZ_inv = K_ZZ.solve(identity_M)
+        K_ZZ_inv = to_linear_operator(K_ZZ_inv)
+        A_batch = K_XZ_batch @ K_ZZ_inv
+        
+        # --- Target Parameters for q(u, r) ---
+        # Target for q(u)
+        E_r = (self.alpha_r / self.beta_r).clamp(min=EPSILON)
+        S_u_inv_data_term = (A_batch.T * E_lambda_batch) @ A_batch / params['noisescale'] * scaling_factor
+        target_S_u_inv = E_r * K_ZZ_inv + S_u_inv_data_term
+        target_S_u_inv = target_S_u_inv.add_jitter(JITTER)
+        target_S_u = target_S_u_inv.solve(identity_M)
+        m_u_data_term = A_batch.T @ torch.diag(E_lambda_batch) @ y_batch / params['noisescale'] * scaling_factor
+        target_m_u = target_S_u @ m_u_data_term
+        
+        # Target for q(r) - using simplified update
+        target_alpha_r = params['dof_func'] / 2.0 + self.M / 2.0
+        E_quad_u = torch.trace(K_ZZ_inv @ (target_S_u + target_m_u @ target_m_u.T))
+        target_beta_r = params['dof_func'] / 2.0 + E_quad_u / 2.0
 
-            target_alpha_r = target_alpha_r
-            target_beta_r = target_beta_r
+        target_alpha_r = target_alpha_r
+        target_beta_r = target_beta_r
 
-            # Solve another variational problem argmin KL(q(u,r)||q(u)q(r))
-            _, target_S_u, _, _ = get_optimal_gaussian_gamma(target_m_u, target_S_u, target_alpha_r, target_beta_r)
+        # Solve another variational problem argmin KL(q(u,r)||q(u)q(r))
+        _, target_S_u, _, _ = get_optimal_gaussian_gamma(target_m_u, target_S_u, target_alpha_r, target_beta_r)
 
-            # Convert current and target parameters to natural form for q(u, r)
-            eta1_curr, eta2_curr, eta3_curr, eta4_curr = gaussian_gamma_standard_to_natural_covariance_param(self.m_u, self.S_u, self.alpha_r, self.beta_r)
-            eta1_targ, eta2_targ, eta3_targ, eta4_targ = gaussian_gamma_standard_to_natural_covariance_param(target_m_u, target_S_u, target_alpha_r, target_beta_r)
+        # Convert current and target parameters to natural form for q(u, r)
+        eta1_curr, eta2_curr, eta3_curr, eta4_curr = gaussian_gamma_standard_to_natural_covariance_param(self.m_u, self.S_u, self.alpha_r, self.beta_r)
+        eta1_targ, eta2_targ, eta3_targ, eta4_targ = gaussian_gamma_standard_to_natural_covariance_param(target_m_u, target_S_u, target_alpha_r, target_beta_r)
 
-            # Polyak averaging step
-            eta1_new = (1 - var_lr) * eta1_curr + var_lr * eta1_targ
-            eta2_new = (1 - var_lr) * eta2_curr + var_lr * eta2_targ
-            eta3_new = (1 - var_lr) * eta3_curr + var_lr * eta3_targ
-            eta4_new = (1 - var_lr) * eta4_curr + var_lr * eta4_targ
+        # Polyak averaging step
+        eta1_new = (1 - var_lr) * eta1_curr + var_lr * eta1_targ
+        eta2_new = (1 - var_lr) * eta2_curr + var_lr * eta2_targ
+        eta3_new = (1 - var_lr) * eta3_curr + var_lr * eta3_targ
+        eta4_new = (1 - var_lr) * eta4_curr + var_lr * eta4_targ
 
-            # Convert back to standard parameters
-            m_u_new, S_u_new, alpha_r_new, beta_r_new = gaussian_gamma_natural_to_standard_covariance_param(eta1_new, eta2_new, eta3_new, eta4_new)
+        # Convert back to standard parameters
+        m_u_new, S_u_new, alpha_r_new, beta_r_new = gaussian_gamma_natural_to_standard_covariance_param(eta1_new, eta2_new, eta3_new, eta4_new)
 
-            # Update model state
-            self.m_u.data = m_u_new
-            self.S_u.data = S_u_new
-            self.alpha_r.data = alpha_r_new
-            self.beta_r.data = beta_r_new
+        # Update model parameters while maintaining computational graph
+        self.m_u = nn.Parameter(m_u_new)
+        self.S_u = nn.Parameter(S_u_new)
+        self.alpha_r = nn.Parameter(alpha_r_new)
+        self.beta_r = nn.Parameter(beta_r_new)
 
     def _m_step(self, optimizer, loss):
         if optimizer is None: return
@@ -692,8 +697,12 @@ class SparseTPR(nn.Module):
         hyper_lr=0.01, var_lr=0.1,
         X_test=None, y_test=None, eval_interval=10
     ):
-        parameters_to_optimize = [p for name, p in self.named_parameters() if self.hyper_optim_mode.get(name.replace("log_",""), "MLE") != 'FIX']
-
+        # Exclude variational parameters from optimizer (they are updated via E-step)
+        variational_params = {'m_u', 'S_u', 'alpha_r', 'beta_r'}
+        parameters_to_optimize = [
+            p for name, p in self.named_parameters() 
+            if name not in variational_params and self.hyper_optim_mode.get(name.replace("log_",""), "MLE") != 'FIX'
+        ]
 
         optimizer = optim.Adam(parameters_to_optimize, lr=hyper_lr) if parameters_to_optimize else None
         dataset = TensorDataset(self.X_full, self.y_full)

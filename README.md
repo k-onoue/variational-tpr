@@ -13,6 +13,8 @@ url={https://openreview.net/forum?id=PN83VEfbQI}
 }
 ```
 
+![Concept](materials/poster_thumbnail.png)
+
 ## 1. Installation
 
 ### 1.1 Prerequisites

@@ -281,10 +281,10 @@ class SparseGPR(nn.Module):
         # Initialize inducing points as learnable parameters
         self.Z = nn.Parameter(self._initialize_inducing_points(method=inducing_init_method))
 
-        # Register variational parameters for q(u) ~ N(m_u, S_u)
-        self.register_buffer('m_u', torch.zeros(self.M, 1, dtype=self.dtype))
+        # Register variational parameters for q(u) as Parameters (to maintain computational graph)
+        self.m_u = nn.Parameter(torch.zeros(self.M, 1, dtype=self.dtype))
         # Storing L_u (Cholesky of S_u) for stability, as in the original logic
-        self.register_buffer('L_u', torch.eye(self.M, dtype=self.dtype))
+        self.L_u = nn.Parameter(torch.eye(self.M, dtype=self.dtype))
 
         # Set kernel function
         if kernel == "rbf":
@@ -411,8 +411,8 @@ class SparseGPR(nn.Module):
         kl_div = 0.5 * (trace_kl + mahalanobis_kl - self.M + log_det_kl)
         return expected_log_likelihood - kl_div
 
-    @torch.no_grad()
     def _e_step(self, X_batch, y_batch, var_lr):
+        # Update variational parameters while maintaining computational graph
         B = X_batch.shape[0]
         params = self._get_hyperparams()
         beta = 1.0 / params['noisescale'].clamp(min=EPSILON)
@@ -455,8 +455,9 @@ class SparseGPR(nn.Module):
             S_u_new = S_u_inv_new_op.solve(identity_M)
             m_u_new = S_u_new @ theta1_new
             L_u_new = torch.linalg.cholesky(S_u_new + JITTER * torch.eye(self.M, device=self.device, dtype=self.dtype))
-            self.m_u.data.copy_(m_u_new)
-            self.L_u.data.copy_(L_u_new)
+            # Update parameters while maintaining computational graph
+            self.m_u = nn.Parameter(m_u_new)
+            self.L_u = nn.Parameter(L_u_new)
         except torch.linalg.LinAlgError:
             logging.warning("Skipping E-step update due to non-positive definite matrix.")
 
@@ -469,9 +470,11 @@ class SparseGPR(nn.Module):
     def fit(self, epochs=100, batch_size=128, hyper_lr=0.01, var_lr=0.1,
             X_test=None, y_test=None, eval_interval=10):
         
+        # Exclude variational parameters from optimizer (they are updated via E-step)
+        variational_params = {'m_u', 'L_u'}
         parameters_to_optimize = [
             p for name, p in self.named_parameters()
-            if self.hyper_optim_mode.get(name.replace("log_", ""), "MLE") != 'FIX'
+            if name not in variational_params and self.hyper_optim_mode.get(name.replace("log_", ""), "MLE") != 'FIX'
         ]
         
         optimizer = optim.Adam(parameters_to_optimize, lr=hyper_lr) if parameters_to_optimize else None
