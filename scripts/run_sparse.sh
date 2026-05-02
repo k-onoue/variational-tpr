@@ -5,7 +5,7 @@
 MODEL_NAMES=("SparseGPR" "SparseTPR") 
 
 # Path to the Python script to be executed
-PYTHON_SCRIPT="experiments/sparse_v6.py" # Make sure this filename is correct
+PYTHON_SCRIPT="experiments/sparse.py" # Make sure this filename is correct
 
 # List of datasets (should match the config in the Python script)
 DATASETS=(

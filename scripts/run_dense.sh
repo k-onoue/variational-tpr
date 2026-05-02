@@ -6,7 +6,7 @@
 MODEL_NAMES=("TPR")
 
 # Path to the Python script to be executed
-PYTHON_SCRIPT="experiments/dense_v8.py"
+PYTHON_SCRIPT="experiments/dense.py"
 
 # List of datasets (should match the config in the Python script)
 DATASETS=(

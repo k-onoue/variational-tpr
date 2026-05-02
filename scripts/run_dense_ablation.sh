@@ -8,7 +8,7 @@ MODEL_NAMES=(
 )
 
 # Path to the Python script to be executed
-PYTHON_SCRIPT="experiments/dense_v5.py"
+PYTHON_SCRIPT="experiments/dense_ablation.py"
 
 # List of datasets (should match the config in the Python script)
 DATASETS=(
